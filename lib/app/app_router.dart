@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// --- IMPORTANT: The import path has been updated ---
+import '../feature/auth_onboarding/presentation/pages/onboarding_page.dart';
 
 // --- Placeholder Screen (To be replaced with actual feature pages) ---
 class PlaceholderScreen extends StatelessWidget {
@@ -25,6 +29,8 @@ class MainAppShell extends StatelessWidget {
   final Widget child;
   const MainAppShell({super.key, required this.child});
 
+  // ... (rest of the MainAppShell code is unchanged)
+  // ...
   int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
     if (location.startsWith('/home')) return 0;
@@ -97,10 +103,26 @@ class MainAppShell extends StatelessWidget {
 
 // --- GoRouter Configuration ---
 class AppRouter {
+  final ValueNotifier<bool> hasSeenOnboarding = ValueNotifier(false);
+
+  AppRouter() {
+    _loadOnboardingStatus();
+  }
+
+  Future<void> _loadOnboardingStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    hasSeenOnboarding.value = prefs.getBool('hasSeenOnboarding') ?? false;
+  }
+
   late final GoRouter router = GoRouter(
+    refreshListenable: hasSeenOnboarding,
     initialLocation: '/home',
+
     routes: [
-      // --- Authentication Routes (No Shell) ---
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingPage(),
+      ),
       GoRoute(
         path: '/signin',
         builder: (context, state) => const PlaceholderScreen(title: 'Sign In'),
@@ -115,7 +137,6 @@ class AppRouter {
             const PlaceholderScreen(title: 'Forgot Password'),
       ),
 
-      // --- Main App Routes (With Shell) ---
       ShellRoute(
         builder: (context, state, child) {
           return MainAppShell(child: child);
@@ -130,14 +151,6 @@ class AppRouter {
             path: '/quizzes',
             builder: (context, state) =>
                 const PlaceholderScreen(title: 'Quizzes'),
-            routes: [
-              GoRoute(
-                path: ':id', // e.g., /quizzes/grammar101
-                builder: (context, state) => PlaceholderScreen(
-                  title: 'Quiz: ${state.pathParameters['id']}',
-                ),
-              ),
-            ],
           ),
           GoRoute(
             path: '/feed',
@@ -148,18 +161,6 @@ class AppRouter {
             path: '/practice',
             builder: (context, state) =>
                 const PlaceholderScreen(title: 'Speaking Practice'),
-            routes: [
-              GoRoute(
-                path: 'pronunciation',
-                builder: (context, state) =>
-                    const PlaceholderScreen(title: 'Pronunciation Support'),
-              ),
-              GoRoute(
-                path: 'peer-to-peer',
-                builder: (context, state) =>
-                    const PlaceholderScreen(title: 'Peer-to-Peer Session'),
-              ),
-            ],
           ),
           GoRoute(
             path: '/profile',
@@ -169,6 +170,22 @@ class AppRouter {
         ],
       ),
     ],
+
+    redirect: (context, state) {
+      final bool seenOnboarding = hasSeenOnboarding.value;
+      final String location = state.uri.toString();
+      final bool isOnboarding = location == '/onboarding';
+
+      if (!seenOnboarding && !isOnboarding) {
+        return '/onboarding';
+      }
+      if (seenOnboarding && isOnboarding) {
+        return '/signin';
+      }
+
+      return null;
+    },
+
     errorBuilder: (context, state) =>
         const PlaceholderScreen(title: '404 - Not Found'),
   );

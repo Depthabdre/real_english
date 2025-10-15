@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "name": "real_english",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/app/main.dart"
+        },
+        {
+            "name": "real_english (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile",
+            "program": "lib/app/main.dart"
+        },
+        {
+            "name": "real_english (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release",
+            "program": "lib/app/main.dart"
+        }
+    ]
+}

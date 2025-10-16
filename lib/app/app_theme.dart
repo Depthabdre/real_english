@@ -9,7 +9,6 @@ class AppTheme {
     colorScheme: ColorScheme.light(
       primary: Color(0xFF1976D2),
       secondary: Color(0xFFFFC107),
-      background: Color(0xFFF9FAFB),
       surface: Colors.white,
     ),
     cardColor: Colors.white,
@@ -40,7 +39,6 @@ class AppTheme {
     colorScheme: ColorScheme.dark(
       primary: Color(0xFF64B5F6),
       secondary: Color(0xFFFFCA28),
-      background: Color(0xFF0D1117),
       surface: Color(0xFF1E1E1E),
     ),
     cardColor: const Color(0xFF1E1E1E),

@@ -1,0 +1,134 @@
+import 'package:dartz/dartz.dart';
+import '../../../../core/errors/exception.dart'; // You will need to create this file
+import '../../../../core/errors/failures.dart';
+import '../../domain/entities/otp.dart';
+import '../../domain/entities/user.dart';
+import '../../domain/repositories/auth_repository.dart';
+import '../datasources/auth_local_datasource.dart';
+import '../datasources/auth_remote_datasource.dart';
+
+class AuthRepositoryImpl implements AuthRepository {
+  final AuthRemoteDatasource remoteDatasource;
+  final AuthLocalDatasource localDatasource;
+
+  AuthRepositoryImpl({
+    required this.remoteDatasource,
+    required this.localDatasource,
+  });
+
+  @override
+  Future<Either<Failures, void>> signUp({
+    required String fullName,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      await remoteDatasource.signUp(
+        fullName: fullName,
+        email: email,
+        password: password,
+      );
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failures, User>> signIn({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final user = await remoteDatasource.signIn(
+        email: email,
+        password: password,
+      );
+      // NOTE: In a real app, you would get tokens from the response and cache them here.
+      // For the dummy implementation, we can just cache fake tokens.
+      await localDatasource.cacheTokens(
+        'fake_access_token',
+        'fake_refresh_token',
+      );
+      return Right(user);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failures, void>> forgotPassword({required String email}) async {
+    try {
+      await remoteDatasource.forgotPassword(email: email);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failures, OTP>> verifyOTP({
+    required String email,
+    required String otpCode,
+  }) async {
+    try {
+      final otp = await remoteDatasource.verifyOTP(
+        email: email,
+        otpCode: otpCode,
+      );
+      return Right(otp);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failures, void>> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await remoteDatasource.resetPassword(
+        token: token,
+        newPassword: newPassword,
+      );
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failures, bool>> isLoggedIn() async {
+    try {
+      final tokens = await localDatasource.getTokens();
+      final bool loggedIn = tokens['accessToken']?.isNotEmpty ?? false;
+      return Right(loggedIn);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failures, void>> signOut() async {
+    try {
+      await localDatasource.clearTokens();
+      return const Right(null);
+    } on CacheException catch (e) {
+      return Left(CacheFailure(message: e.message));
+    }
+  }
+
+  // --- UNIMPLEMENTED METHODS ---
+  @override
+  Future<Either<Failures, User>> getMe() {
+    // TODO: implement getMe
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failures, User>> googleSignIn() {
+    // TODO: implement googleSignIn
+    throw UnimplementedError();
+  }
+}

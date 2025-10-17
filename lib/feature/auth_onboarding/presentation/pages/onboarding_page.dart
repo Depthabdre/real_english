@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:real_english/app/app_router.dart';
+
+// Import the service locator to access dependencies like SharedPreferences
+import '../../../../app/injection_container.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -13,6 +15,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
+  // The content for the onboarding screens remains the same.
   final List<Widget> _onboardingScreens = [
     const _OnboardingContent(
       icon: Icons.school_rounded,
@@ -34,14 +37,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
   ];
 
+  /// Finishes the onboarding flow.
   void _finishOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('hasSeenOnboarding', true);
+    // Get the singleton instance of our AppRouter from the service locator
+    final appRouter = sl<AppRouter>();
 
-    if (mounted) {
-      // Navigate to the sign-up page, which is also part of this feature.
-      context.go('/signup');
-    }
+    // Call the method that handles updating both storage and the live state notifier.
+    // This will automatically trigger the router's redirect logic.
+    await appRouter.setOnboardingComplete();
   }
 
   @override
@@ -71,17 +74,22 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  /// Builds the bottom controls (Skip/Next buttons and page indicators).
   Widget _buildBottomControls() {
     final isLastPage = _currentPage == _onboardingScreens.length - 1;
+    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Show a placeholder on the last page to keep the indicators centered
           isLastPage
               ? const SizedBox(width: 80)
               : _buildTextButton("Skip", _finishOnboarding),
+
+          // Page indicators
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
@@ -89,16 +97,23 @@ class _OnboardingPageState extends State<OnboardingPage> {
               (index) => _buildPageIndicator(index == _currentPage),
             ),
           ),
+
+          // Show "Get Started" on the last page, otherwise "Next"
           isLastPage
               ? ElevatedButton(
                   onPressed: _finishOnboarding,
+                  // UPDATED: Style is now consistent with other auth pages.
                   style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
-                      vertical: 12,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   child: const Text("Get Started"),
@@ -123,7 +138,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       decoration: BoxDecoration(
         color: isActive
             ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.secondary.withOpacity(0.5),
+            : Theme.of(context).colorScheme.primary.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
       ),
     );
@@ -147,6 +162,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 }
 
+/// A reusable widget for the content displayed on each onboarding screen.
 class _OnboardingContent extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -172,7 +188,7 @@ class _OnboardingContent extends StatelessWidget {
             title,
             style: Theme.of(
               context,
-            ).textTheme.titleLarge?.copyWith(fontSize: 28),
+            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),

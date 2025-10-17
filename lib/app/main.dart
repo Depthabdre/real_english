@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-import 'app_router.dart';
-import 'app_theme.dart';
-import 'injection_container.dart' as di;
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:real_english/app/app_router.dart';
+import 'package:real_english/app/app_theme.dart';
+import 'package:real_english/app/injection_container.dart';
+import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_bloc.dart';
+import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_event.dart';
+import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_state.dart';
 
 void main() async {
-  // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
+  await init(); // Initializes all dependencies via GetIt
 
-  // Initialize dependency injection
-  await di.init();
-
-  // Setup router
-  final appRouter = AppRouter();
+  // Get the singleton AppRouter instance from the service locator
+  final appRouter = sl<AppRouter>();
 
   runApp(MyApp(appRouter: appRouter));
 }
@@ -23,13 +24,29 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Ethio English Learning',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system, // Users can change this in settings
-      debugShowCheckedModeBanner: false,
-      routerConfig: appRouter.router,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>(
+          create: (_) => sl<AuthBloc>()..add(AppStarted()),
+        ),
+      ],
+      child: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is Authenticated) {
+            appRouter.isAuthenticated.value = true;
+          } else if (state is Unauthenticated || state is AuthError) {
+            appRouter.isAuthenticated.value = false;
+          }
+        },
+        child: MaterialApp.router(
+          title: 'Ethio English Learning',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: ThemeMode.system,
+          debugShowCheckedModeBanner: false,
+          routerConfig: appRouter.router,
+        ),
+      ),
     );
   }
 }

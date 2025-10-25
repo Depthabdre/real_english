@@ -15,7 +15,7 @@ import 'auth_state.dart';
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignIn signInUseCase;
   final SignUp signUpUseCase;
-  final GoogleSignIn googleSignInUseCase;
+  final googleSignIn googleSignInUseCase;
   final ForgotPassword forgotPasswordUseCase;
   final VerifyOTP verifyOTPUseCase;
   final ResetPassword resetPasswordUseCase;
@@ -149,9 +149,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     GoogleSignInRequested event,
     Emitter<AuthState> emit,
   ) async {
-    // Implement Google Sign-In logic when ready
+    // 1. Immediately emit the loading state to show a spinner in the UI.
     emit(AuthLoading());
-    await Future.delayed(Duration(seconds: 2));
-    emit(const AuthError("Google Sign-In is not implemented yet."));
+
+    // 2. Call the googleSignInUseCase. This use case doesn't require any parameters.
+    //    It will trigger the entire flow:
+    //    - Show the native Google account picker.
+    //    - Get the ID token.
+    //    - Send it to your backend.
+    //    - Your backend verifies it and returns your app's user profile and access token.
+    //    - The repository saves your access token to secure storage.
+    final result = await googleSignInUseCase();
+
+    // 3. Handle the result.
+    result.fold(
+      // If anything fails (user cancels, network error, backend error), emit the error state.
+      (failure) => emit(AuthError(failure.message)),
+
+      // If the entire flow is successful, the user is now logged in.
+      // Emit the Authenticated state to navigate the user to the home screen.
+      (user) => emit(Authenticated()),
+    );
   }
 }

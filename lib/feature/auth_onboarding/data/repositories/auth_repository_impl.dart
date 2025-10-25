@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/errors/exception.dart'; // You will need to create this file
 import '../../../../core/errors/failures.dart';
 import '../../domain/entities/otp.dart';
@@ -10,10 +11,12 @@ import '../datasources/auth_remote_datasource.dart';
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDatasource remoteDatasource;
   final AuthLocalDatasource localDatasource;
+  final GoogleSignIn googleSignInInstance;
 
   AuthRepositoryImpl({
     required this.remoteDatasource,
     required this.localDatasource,
+    required this.googleSignInInstance,
   });
 
   @override
@@ -46,10 +49,7 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       // NOTE: In a real app, you would get tokens from the response and cache them here.
       // For the dummy implementation, we can just cache fake tokens.
-      await localDatasource.cacheTokens(
-        'fake_access_token',
-        'fake_refresh_token',
-      );
+      await localDatasource.cacheToken('fake_access_token');
       return Right(user);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
@@ -101,8 +101,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failures, bool>> isLoggedIn() async {
     try {
-      final tokens = await localDatasource.getTokens();
-      final bool loggedIn = tokens['accessToken']?.isNotEmpty ?? false;
+      final token = await localDatasource.getToken();
+      final bool loggedIn = token?.isNotEmpty ?? false;
       return Right(loggedIn);
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message));
@@ -112,7 +112,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failures, void>> signOut() async {
     try {
-      await localDatasource.clearTokens();
+      await localDatasource.clearToken();
       return const Right(null);
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message));
@@ -126,9 +126,44 @@ class AuthRepositoryImpl implements AuthRepository {
     throw UnimplementedError();
   }
 
+  // --- GOOGLE SIGN-IN IMPLEMENTATION (CORRECTED) ---
   @override
-  Future<Either<Failures, User>> googleSignIn() {
-    // TODO: implement googleSignIn
-    throw UnimplementedError();
+  Future<Either<Failures, User>> googleSignIn() async {
+    try {
+      // Step 1: Trigger the native Google Sign-In UI flow.
+      // THE FIX IS HERE: The method is .authenticate()
+      final GoogleSignInAccount? googleUser = await googleSignInInstance
+          .authenticate();
+
+      if (googleUser == null) {
+        // The user closed the popup.
+        return Left(
+          ServerFailure(message: 'Sign-in process cancelled by user.'),
+        );
+      }
+
+      // Step 2: Get the authentication tokens.
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      if (idToken == null) {
+        return Left(
+          ServerFailure(message: 'Failed to retrieve Google ID token.'),
+        );
+      }
+
+      // Step 3: Send the token to your backend.
+      final user = await remoteDatasource.googleSignIn(idToken: idToken);
+      return Right(user);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
+    } on GoogleSignInException catch (e) {
+      return Left(ServerFailure(message: 'Google Sign-In Error: ${e.toString()}'));
+    } catch (e) {
+      return Left(
+        ServerFailure(message: 'An unexpected error occurred: ${e.toString()}'),
+      );
+    }
   }
 }

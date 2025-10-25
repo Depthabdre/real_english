@@ -1,7 +1,11 @@
+import 'dart:async';
+
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:real_english/app/injection_container.dart';
-
+import 'package:real_english/feature/auth_onboarding/domain/usecases/googlesignin_usecase.dart';
 
 import 'data/datasources/auth_local_datasource.dart';
 import 'data/datasources/auth_remote_datasource.dart';
@@ -10,7 +14,6 @@ import 'domain/repositories/auth_repository.dart';
 import 'domain/usecases/auth_check.dart';
 import 'domain/usecases/forget_password_usecase.dart';
 import 'domain/usecases/getme_usecase.dart';
-import 'domain/usecases/googlesignin_usecase.dart';
 import 'domain/usecases/reset_password_usecase.dart';
 import 'domain/usecases/signin_usecase.dart';
 import 'domain/usecases/signout_usecase.dart';
@@ -46,17 +49,25 @@ Future<void> initAuthFeature() async {
   sl.registerLazySingleton(() => ForgotPassword(sl()));
   sl.registerLazySingleton(() => VerifyOTP(sl()));
   sl.registerLazySingleton(() => ResetPassword(sl()));
-  sl.registerLazySingleton(() => GoogleSignIn(sl()));
+  sl.registerLazySingleton(() => googleSignIn(sl()));
   sl.registerLazySingleton(() => GetMe(sl()));
 
   // --- Data Layer ---
   sl.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(remoteDatasource: sl(), localDatasource: sl()),
+    () => AuthRepositoryImpl(
+      remoteDatasource: sl(),
+      localDatasource: sl(),
+      googleSignInInstance: sl(), // Inject GoogleSignIn here as well),
+    ),
   );
 
   // Data Sources
   sl.registerLazySingleton<AuthRemoteDatasource>(
-    () => AuthRemoteDatasourceImpl(),
+    () => AuthRemoteDatasourceImpl(
+      client: sl(),
+      localDatasource: sl(),
+      googleSignInInstance: sl(),
+    ),
   );
   sl.registerLazySingleton<AuthLocalDatasource>(
     () => AuthLocalDatasourceImpl(secureStorage: sl()),
@@ -65,4 +76,17 @@ Future<void> initAuthFeature() async {
   // --- External Dependencies ---
   sl.registerLazySingleton(() => const FlutterSecureStorage());
   sl.registerLazySingleton(() => http.Client());
+  // GoogleSignIn instance with default scopes (email, profile)
+  // --- FINAL, SECURE, AND CORRECT REGISTRATION FOR google_sign_in v7.2.0 ---
+  // 1. Get the singleton instance provided by the package.
+  final googleSignInPackage = GoogleSignIn.instance;
+
+  // 2. Perform the asynchronous initialization.
+  await googleSignInPackage.initialize(
+    clientId: dotenv.env['ANDROID_CLIENT_ID']!,
+    serverClientId: dotenv.env['WEB_CLIENT_ID']!,
+  );
+
+  // 3. Register the now-initialized instance as a singleton.
+  sl.registerLazySingleton<GoogleSignIn>(() => googleSignInPackage);
 }

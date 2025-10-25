@@ -36,6 +36,12 @@ class _SignInPageState extends State<SignInPage> {
     }
   }
 
+  // --- ADDED ---
+  // New method to handle the Google Sign-In button press.
+  void _onGoogleSignIn() {
+    context.read<AuthBloc>().add(GoogleSignInRequested());
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -88,8 +94,13 @@ class _SignInPageState extends State<SignInPage> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
-                        if (value == null || value.isEmpty)
+                        if (value == null || value.isEmpty) {
                           return 'Email is required';
+                        }
+                        // Simple email validation
+                        if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
+                          return 'Please enter a valid email';
+                        }
                         return null;
                       },
                       decoration: _inputDecoration(
@@ -134,6 +145,24 @@ class _SignInPageState extends State<SignInPage> {
                               ),
                             )
                           : const Text('Sign In'),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // --- ADDED ---
+                    // Divider to separate the two sign-in methods
+                    _buildDivider(theme),
+                    const SizedBox(height: 24),
+
+                    // --- ADDED ---
+                    // Google Sign-In Button
+                    OutlinedButton.icon(
+                      onPressed: isLoading ? null : _onGoogleSignIn,
+                      icon: Image.asset(
+                        'assets/icon/google_logo.jpeg',
+                        height: 24.0,
+                      ),
+                      label: const Text('Sign In with Google'),
+                      style: _socialButtonStyle(theme),
                     ),
                     const SizedBox(height: 24),
 
@@ -189,8 +218,39 @@ class _SignInPageState extends State<SignInPage> {
       );
 
   ButtonStyle _primaryButtonStyle(ThemeData theme) => ElevatedButton.styleFrom(
+    backgroundColor: theme.colorScheme.primary,
+    foregroundColor: theme.colorScheme.onPrimary,
     padding: const EdgeInsets.symmetric(vertical: 16),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
   );
+
+  // --- ADDED ---
+  // Style for the new Google Sign-In button
+  ButtonStyle _socialButtonStyle(ThemeData theme) => OutlinedButton.styleFrom(
+    padding: const EdgeInsets.symmetric(vertical: 16),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    side: BorderSide(color: theme.colorScheme.outline),
+    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+  );
+
+  // --- ADDED ---
+  // A helper widget for the divider
+  Widget _buildDivider(ThemeData theme) {
+    return Row(
+      children: [
+        Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: Text(
+            'OR',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
+      ],
+    );
+  }
 }

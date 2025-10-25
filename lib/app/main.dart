@@ -6,9 +6,12 @@ import 'package:real_english/app/injection_container.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_bloc.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_event.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_state.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Load the environment variables from the .env file
+  await dotenv.load(fileName: ".env");
   await init(); // Initializes all dependencies via GetIt
 
   // Get the singleton AppRouter instance from the service locator

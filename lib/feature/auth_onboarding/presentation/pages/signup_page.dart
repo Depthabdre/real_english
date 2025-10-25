@@ -119,10 +119,12 @@ class _SignUpPageState extends State<SignUpPage> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
-                        if (value == null || value.isEmpty)
+                        if (value == null || value.isEmpty) {
                           return 'Email is required';
-                        if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value))
+                        }
+                        if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
                           return 'Enter a valid email';
+                        }
                         return null;
                       },
                       decoration: _inputDecoration(
@@ -136,10 +138,12 @@ class _SignUpPageState extends State<SignUpPage> {
                       controller: _passwordController,
                       obscureText: !_isPasswordVisible,
                       validator: (value) {
-                        if (value == null || value.isEmpty)
+                        if (value == null || value.isEmpty) {
                           return 'Password is required';
-                        if (value.length < 8)
+                        }
+                        if (value.length < 8) {
                           return 'Password must be at least 8 characters';
+                        }
                         return null;
                       },
                       decoration: _passwordDecoration(theme),

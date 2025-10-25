@@ -81,10 +81,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
-                      if (value == null || value.isEmpty)
+                      if (value == null || value.isEmpty) {
                         return 'Email is required';
-                      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value))
+                      }
+                      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
                         return 'Enter a valid email';
+                      }
                       return null;
                     },
                     decoration: InputDecoration(

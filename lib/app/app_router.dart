@@ -10,8 +10,6 @@ import 'package:real_english/feature/auth_onboarding/presentation/pages/signin_p
 import 'package:real_english/feature/auth_onboarding/presentation/pages/signup_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
-
 // --- Placeholder Screen for unbuilt features ---
 class PlaceholderScreen extends StatelessWidget {
   final String title;
@@ -31,7 +29,51 @@ class PlaceholderScreen extends StatelessWidget {
   }
 }
 
-// --- Main App Shell with Bottom Navigation ---
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF121212), // dark gray-black background
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // App Icon
+            Image(
+              image: AssetImage('assets/images/RealIcon2.png'),
+              width: 120,
+              height: 120,
+            ),
+            SizedBox(height: 25),
+
+            // App Name
+            Text(
+              'Real English',
+              style: TextStyle(
+                color: Colors.white, // white text for contrast
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.3,
+              ),
+            ),
+
+            SizedBox(height: 18),
+
+            // Subtle progress indicator
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+              strokeWidth: 2.5,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- Main App Shell with Bottom Navigation and Custom Back Logic ---
 class MainAppShell extends StatelessWidget {
   final Widget child;
   const MainAppShell({super.key, required this.child});
@@ -68,39 +110,59 @@ class MainAppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: child,
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _calculateSelectedIndex(context),
-        onTap: (index) => _onItemTapped(index, context),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.quiz_outlined),
-            activeIcon: Icon(Icons.quiz),
-            label: 'Quizzes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.video_library_outlined),
-            activeIcon: Icon(Icons.video_library),
-            label: 'Feed',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.mic_none_outlined),
-            activeIcon: Icon(Icons.mic),
-            label: 'Practice',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+    final location = GoRouterState.of(context).uri.toString();
+    // Check if the current page is one of the main pages that should redirect to home on back press
+    final isRedirectablePage =
+        location.startsWith('/quizzes') ||
+        location.startsWith('/feed') ||
+        location.startsWith('/practice') ||
+        location.startsWith('/profile');
+
+    return PopScope<bool>(
+      canPop: !isRedirectablePage, // block back navigation for certain pages
+      onPopInvokedWithResult: (didPop, result) async {
+        if (!didPop && isRedirectablePage) {
+          // Pop was blocked, so redirect to home
+          context.go('/home');
+        } else if (didPop) {
+          // Pop succeeded, you can handle result if needed
+          print('Page popped successfully with result: $result');
+        }
+      },
+      child: Scaffold(
+        body: child,
+        bottomNavigationBar: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          currentIndex: _calculateSelectedIndex(context),
+          onTap: (index) => _onItemTapped(index, context),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.quiz_outlined),
+              activeIcon: Icon(Icons.quiz),
+              label: 'Quizzes',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.video_library_outlined),
+              activeIcon: Icon(Icons.video_library),
+              label: 'Feed',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.mic_none_outlined),
+              activeIcon: Icon(Icons.mic),
+              label: 'Practice',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -131,6 +193,7 @@ class AppRouter {
     refreshListenable: Listenable.merge([hasSeenOnboarding, isAuthenticated]),
     initialLocation: '/home',
     routes: [
+      // --- Authentication and Onboarding Routes ---
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingPage(),
@@ -155,33 +218,32 @@ class AppRouter {
         path: '/password-reset-success',
         builder: (context, state) => const PasswordResetSuccessPage(),
       ),
-      ShellRoute(
-        builder: (context, state, child) => MainAppShell(child: child),
-        routes: [
-          GoRoute(
-            path: '/home',
-            builder: (context, state) => const PlaceholderScreen(title: 'Home'),
-          ),
-          GoRoute(
-            path: '/quizzes',
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Quizzes'),
-          ),
-          GoRoute(
-            path: '/feed',
-            builder: (context, state) => const PlaceholderScreen(title: 'Feed'),
-          ),
-          GoRoute(
-            path: '/practice',
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Practice'),
-          ),
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Profile'),
-          ),
-        ],
+
+      // --- Main Application Routes ---
+      GoRoute(
+        path: '/home',
+        builder: (context, state) =>
+            const MainAppShell(child: PlaceholderScreen(title: 'Home')),
+      ),
+      GoRoute(
+        path: '/quizzes',
+        builder: (context, state) =>
+            const MainAppShell(child: PlaceholderScreen(title: 'Quizzes')),
+      ),
+      GoRoute(
+        path: '/feed',
+        builder: (context, state) =>
+            const MainAppShell(child: PlaceholderScreen(title: 'Feed')),
+      ),
+      GoRoute(
+        path: '/practice',
+        builder: (context, state) =>
+            const MainAppShell(child: PlaceholderScreen(title: 'Practice')),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) =>
+            const MainAppShell(child: PlaceholderScreen(title: 'Profile')),
       ),
     ],
     redirect: (context, state) {
@@ -189,13 +251,16 @@ class AppRouter {
       final bool loggedIn = isAuthenticated.value;
       final String location = state.uri.toString();
       final bool isOnboarding = location == '/onboarding';
-      final isAuthenticating =
-          location.startsWith('/signin') ||
-          location.startsWith('/signup') ||
-          location.startsWith('/forgot-password') ||
-          location.startsWith('/otppage') ||
-          location.startsWith('/reset-password') ||
-          location.startsWith('/password-reset-success');
+      const authRoutes = {
+        '/signin',
+        '/signup',
+        '/forgot-password',
+        '/otppage',
+        '/reset-password',
+        '/password-reset-success',
+      };
+
+      final isAuthenticating = authRoutes.contains(location);
 
       if (!seenOnboarding && !isOnboarding) return '/onboarding';
       if (seenOnboarding && isOnboarding) return '/signin';

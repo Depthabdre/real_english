@@ -79,6 +79,7 @@ Future<void> initAuthFeature() async {
   // GoogleSignIn instance with default scopes (email, profile)
   // --- FINAL, SECURE, AND CORRECT REGISTRATION FOR google_sign_in v7.2.0 ---
   // 1. Get the singleton instance provided by the package.
+
   final googleSignInPackage = GoogleSignIn.instance;
 
   // 2. Perform the asynchronous initialization.

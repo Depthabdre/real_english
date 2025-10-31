@@ -132,19 +132,12 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       // Step 1: Trigger the native Google Sign-In UI flow.
       // THE FIX IS HERE: The method is .authenticate()
-      final GoogleSignInAccount? googleUser = await googleSignInInstance
+      final GoogleSignInAccount googleUser = await googleSignInInstance
           .authenticate();
-
-      if (googleUser == null) {
-        // The user closed the popup.
-        return Left(
-          ServerFailure(message: 'Sign-in process cancelled by user.'),
-        );
-      }
 
       // Step 2: Get the authentication tokens.
       final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+          googleUser.authentication;
       final String? idToken = googleAuth.idToken;
 
       if (idToken == null) {
@@ -159,7 +152,10 @@ class AuthRepositoryImpl implements AuthRepository {
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));
     } on GoogleSignInException catch (e) {
-      return Left(ServerFailure(message: 'Google Sign-In Error: ${e.toString()}'));
+      print('Google Sign-In Error: ${e.toString()}');
+      return Left(
+        ServerFailure(message: 'Google Sign-In Error'),
+      );
     } catch (e) {
       return Left(
         ServerFailure(message: 'An unexpected error occurred: ${e.toString()}'),

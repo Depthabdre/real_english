@@ -113,7 +113,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
             headers: {'Content-Type': 'application/json; charset=UTF-8'},
             body: json.encode({'email': email, 'password': password}),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

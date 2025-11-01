@@ -44,11 +44,16 @@ dependencies:
   http: ^1.5.0
   google_sign_in: ^7.2.0
   flutter_dotenv: ^5.1.0
+  hive: ^2.2.3 # core Hive package
+  hive_flutter: ^1.1.0 # Flutter integration
+  internet_connection_checker_plus: ^2.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: "0.14.4"
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.0 # or whatever compatible version you need
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

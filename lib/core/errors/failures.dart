@@ -14,3 +14,7 @@ class CacheFailure extends Failures {
 class NetworkFailure extends Failures {
   NetworkFailure({super.message});
 }
+
+class UnknownFailure extends Failures {
+  UnknownFailure({super.message = 'Unknown Error'});
+}

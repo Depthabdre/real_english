@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:hive/hive.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/abstract_challenge.dart';
 
 // Represents a sequential part of a story, which can be narration or a challenge
@@ -31,11 +32,16 @@ class StorySegment extends Equatable {
 }
 
 // Defines the type of a story segment
+@HiveType(typeId: 2) // Assign unique ID for SegmentType enum
 enum SegmentType {
-  narration, // A segment that just narrates the story
-  choiceChallenge, // A segment with a multiple-choice interaction (e.g., umbrella/sunglasses)
-  audioChallenge, // A segment that requires listening and interaction (e.g., listen & choose)
-  speechChallenge, // A segment that requires speech input (e.g., repeat what you hear)
-  dragDropChallenge, // A segment with drag and drop interaction
-  // Add other challenge types as we define them
+  @HiveField(0)
+  narration,
+  @HiveField(1)
+  choiceChallenge,
+  @HiveField(2)
+  audioChallenge,
+  @HiveField(3)
+  speechChallenge,
+  @HiveField(4)
+  dragDropChallenge,
 }

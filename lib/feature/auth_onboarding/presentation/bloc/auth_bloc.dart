@@ -1,3 +1,4 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/usecases/auth_check.dart';
@@ -9,8 +10,8 @@ import '../../domain/usecases/signin_usecase.dart';
 import '../../domain/usecases/signout_usecase.dart';
 import '../../domain/usecases/signup_usecase.dart';
 import '../../domain/usecases/verifyotp_usecase.dart';
-import 'auth_event.dart';
-import 'auth_state.dart';
+part 'auth_event.dart';
+part  'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignIn signInUseCase;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:real_english/app/injection_container.dart';
+import 'package:real_english/feature/StoryTrails/presentation/pages/story_trails_list_page.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/pages/forgot_password_page.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/pages/onboarding_page.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/pages/otp_page.dart';
@@ -228,7 +229,7 @@ class AppRouter {
       GoRoute(
         path: '/quizzes',
         builder: (context, state) =>
-            const MainAppShell(child: PlaceholderScreen(title: 'Quizzes')),
+            const MainAppShell(child: StoryTrailsListPage()),
       ),
       GoRoute(
         path: '/feed',

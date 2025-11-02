@@ -1,17 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive/hive.dart';
+import 'package:hive_flutter/adapters.dart';
 import 'package:real_english/app/app_router.dart';
 import 'package:real_english/app/app_theme.dart';
 import 'package:real_english/app/injection_container.dart';
+import 'package:real_english/feature/StoryTrails/data/models/challenge_attempt_model.dart';
+import 'package:real_english/feature/StoryTrails/data/models/choice_model.dart';
+import 'package:real_english/feature/StoryTrails/data/models/single_choice_challenge_model.dart';
+import 'package:real_english/feature/StoryTrails/data/models/story_progress_model.dart';
+import 'package:real_english/feature/StoryTrails/data/models/story_segment_model.dart';
+import 'package:real_english/feature/StoryTrails/data/models/story_trail_model.dart';
+import 'package:real_english/feature/StoryTrails/data/models/user_learning_profile_model.dart';
+import 'package:real_english/feature/StoryTrails/domain/entities/abstract_challenge.dart';
+import 'package:real_english/feature/StoryTrails/domain/entities/story_segment.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_bloc.dart';
-import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_event.dart';
-import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_state.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Load the environment variables from the .env file
   await dotenv.load(fileName: ".env");
+  await Hive.initFlutter();
+
+  // 4. Register all your generated TypeAdapters
+  Hive.registerAdapter(StoryTrailModelAdapter());
+  Hive.registerAdapter(StorySegmentModelAdapter());
+  Hive.registerAdapter(SegmentTypeAdapter()); // Make sure this is imported
+  Hive.registerAdapter(ChallengeTypeAdapter()); // Make sure this is imported
+  Hive.registerAdapter(SingleChoiceChallengeModelAdapter());
+  Hive.registerAdapter(ChoiceModelAdapter());
+  Hive.registerAdapter(StoryProgressModelAdapter());
+  Hive.registerAdapter(ChallengeAttemptModelAdapter());
+  Hive.registerAdapter(UserLearningProfileModelAdapter());
   await init(); // Initializes all dependencies via GetIt
 
   // Get the singleton AppRouter instance from the service locator

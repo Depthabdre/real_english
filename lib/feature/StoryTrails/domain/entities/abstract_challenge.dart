@@ -1,12 +1,14 @@
 import 'package:equatable/equatable.dart';
 import 'package:hive/hive.dart';
 
+part 'abstract_challenge.g.dart'; // <--- ADD THIS LINE
+
 // Base class for different types of challenges
-// This allows us to have different challenge structures while keeping a common type
+// ... (rest of the Challenge class is the same)
 abstract class Challenge extends Equatable {
   final String id;
-  final String prompt; // "Should I take my umbrella or my sunglasses?"
-  final ChallengeType type; // Enum for the specific challenge type
+  final String prompt;
+  final ChallengeType type;
 
   const Challenge({required this.id, required this.prompt, required this.type});
 
@@ -14,7 +16,7 @@ abstract class Challenge extends Equatable {
   List<Object?> get props => [id, prompt, type];
 }
 
-@HiveType(typeId: 3) // Assign unique ID for ChallengeType enum
+@HiveType(typeId: 3)
 enum ChallengeType {
   @HiveField(0)
   singleChoice,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:real_english/app/injection_container.dart';
+import 'package:real_english/feature/StoryTrails/presentation/pages/story_player_page.dart';
 import 'package:real_english/feature/StoryTrails/presentation/pages/story_trails_list_page.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/pages/forgot_password_page.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/pages/onboarding_page.dart';
@@ -82,7 +83,7 @@ class MainAppShell extends StatelessWidget {
   int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
     if (location.startsWith('/home')) return 0;
-    if (location.startsWith('/quizzes')) return 1;
+    if (location.startsWith('/story-trails')) return 1;
     if (location.startsWith('/feed')) return 2;
     if (location.startsWith('/practice')) return 3;
     if (location.startsWith('/profile')) return 4;
@@ -95,7 +96,7 @@ class MainAppShell extends StatelessWidget {
         context.go('/home');
         break;
       case 1:
-        context.go('/quizzes');
+        context.go('/story-trails');
         break;
       case 2:
         context.go('/feed');
@@ -114,7 +115,7 @@ class MainAppShell extends StatelessWidget {
     final location = GoRouterState.of(context).uri.toString();
     // Check if the current page is one of the main pages that should redirect to home on back press
     final isRedirectablePage =
-        location.startsWith('/quizzes') ||
+        location.startsWith('/story-trails') ||
         location.startsWith('/feed') ||
         location.startsWith('/practice') ||
         location.startsWith('/profile');
@@ -145,7 +146,7 @@ class MainAppShell extends StatelessWidget {
             BottomNavigationBarItem(
               icon: Icon(Icons.quiz_outlined),
               activeIcon: Icon(Icons.quiz),
-              label: 'Quizzes',
+              label: 'story-trails',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.video_library_outlined),
@@ -226,10 +227,31 @@ class AppRouter {
         builder: (context, state) =>
             const MainAppShell(child: PlaceholderScreen(title: 'Home')),
       ),
+
       GoRoute(
-        path: '/quizzes',
-        builder: (context, state) =>
-            const MainAppShell(child: StoryTrailsListPage()),
+        path: '/story-trails',
+        builder: (context, state) {
+          // This is the parent route, it builds the list page inside your main shell.
+          return const MainAppShell(child: StoryTrailsListPage());
+        },
+        // --- ADD THIS 'routes' PARAMETER ---
+        routes: [
+          // This defines a child route. It will be accessible via the path
+          // '/story-trails/player/:trailId'.
+          GoRoute(
+            path: 'player/:trailId', // Note: No leading '/' on child paths
+            builder: (context, state) {
+              // Extract the trailId from the route parameters.
+              final trailId = state.pathParameters['trailId']!;
+
+              // This builds the story player page, which will appear on top of
+              // or within the context of the MainAppShell.
+              // If MainAppShell is defined at a higher level, go_router handles
+              // the nesting correctly.
+              return StoryPlayerPage(trailId: trailId);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/feed',

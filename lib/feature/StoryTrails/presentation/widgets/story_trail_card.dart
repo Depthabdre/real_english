@@ -23,7 +23,7 @@ class StoryTrailCard extends StatelessWidget {
       child: InkWell(
         onTap: () {
           // Navigate to the story player page with the specific trail ID
-          context.go('/story-player/${storyTrail.id}');
+          context.go('/story-trails/player/${storyTrail.id}');
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

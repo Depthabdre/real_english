@@ -3,6 +3,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
+import 'package:real_english/feature/StoryTrails/presentation/bloc/story_player_bloc.dart';
 
 import '../../../app/injection_container.dart'; // To access the global 'sl'
 import '../../../core/network/network_info.dart';
@@ -40,10 +41,17 @@ Future<void> initStoryTrailsFeature() async {
       getStoryTrailsForLevelUseCase: sl(),
     ),
   );
-  // TODO: Register StoryPlayerBloc later when we build it
-  // sl.registerFactory(
-  //   () => StoryPlayerBloc(...),
-  // );
+
+  // --- ADD THIS REGISTRATION ---
+  sl.registerFactory(
+    () => StoryPlayerBloc(
+      getStoryTrailByIdUseCase: sl(),
+      getUserStoryProgressUseCase: sl(),
+      submitChallengeAnswerUseCase: sl(),
+      saveUserStoryProgressUseCase: sl(),
+      markStoryTrailCompletedUseCase: sl(),
+    ),
+  );
 
   // --- Domain Layer (Use Cases) ---
   sl.registerLazySingleton(() => GetStoryTrailsForLevel(sl()));

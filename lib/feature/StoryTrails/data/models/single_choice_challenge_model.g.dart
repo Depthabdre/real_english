@@ -22,13 +22,15 @@ class SingleChoiceChallengeModelAdapter
       prompt: fields[1] as String,
       choices: (fields[3] as List).cast<ChoiceModel>(),
       correctAnswerId: fields[4] as String,
+      correctFeedback: fields[5] as String?,
+      incorrectFeedback: fields[6] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, SingleChoiceChallengeModel obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -38,7 +40,11 @@ class SingleChoiceChallengeModelAdapter
       ..writeByte(3)
       ..write(obj.choices)
       ..writeByte(4)
-      ..write(obj.correctAnswerId);
+      ..write(obj.correctAnswerId)
+      ..writeByte(5)
+      ..write(obj.correctFeedback)
+      ..writeByte(6)
+      ..write(obj.incorrectFeedback);
   }
 
   @override

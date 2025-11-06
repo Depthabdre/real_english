@@ -4,22 +4,24 @@ import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.da
 import '../../../../core/errors/failures.dart';
 import '../repositories/story_trails_repository.dart';
 
-class GetStoryTrailsForLevel {
+// --- RENAMED CLASS ---
+class GetStoryTrailForLevel {
   final StoryTrailsRepository repository;
 
-  GetStoryTrailsForLevel(this.repository);
+  GetStoryTrailForLevel(this.repository);
 
-  Future<Either<Failures, List<StoryTrail>>> call(
-    GetStoryTrailsForLevelParams params,
+  // --- UPDATED RETURN TYPE ---
+  Future<Either<Failures, StoryTrail?>> call(
+    GetStoryTrailForLevelParams params,
   ) async {
-    return await repository.getStoryTrailsForLevel(params.level);
+    return await repository.getStoryTrailForLevel(params.level);
   }
 }
 
-class GetStoryTrailsForLevelParams extends Equatable {
+class GetStoryTrailForLevelParams extends Equatable {
   final int level;
 
-  const GetStoryTrailsForLevelParams({required this.level});
+  const GetStoryTrailForLevelParams({required this.level});
 
   @override
   List<Object?> get props => [level];

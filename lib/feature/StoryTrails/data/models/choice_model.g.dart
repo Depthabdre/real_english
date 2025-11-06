@@ -20,22 +20,19 @@ class ChoiceModelAdapter extends TypeAdapter<ChoiceModel> {
       id: fields[0] as String,
       text: fields[1] as String,
       imageUrl: fields[2] as String?,
-      audioUrl: fields[3] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ChoiceModel obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(3)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.text)
       ..writeByte(2)
-      ..write(obj.imageUrl)
-      ..writeByte(3)
-      ..write(obj.audioUrl);
+      ..write(obj.imageUrl);
   }
 
   @override

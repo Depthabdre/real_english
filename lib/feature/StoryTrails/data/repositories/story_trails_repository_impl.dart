@@ -1,11 +1,15 @@
 import 'package:dartz/dartz.dart';
-import 'package:real_english/core/errors/exception.dart';
-import 'package:real_english/feature/StoryTrails/domain/entities/single_choice_challenge.dart';
-import 'package:real_english/feature/StoryTrails/domain/entities/story_progress.dart';
+import 'package:real_english/feature/StoryTrails/domain/entities/level_completion_status.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
-import 'package:real_english/feature/StoryTrails/domain/entities/user_learning_profile.dart';
+
+import '../../../../core/errors/exception.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/network_info.dart';
+
+import '../../domain/entities/single_choice_challenge.dart';
+import '../../domain/entities/story_progress.dart';
+
+import '../../domain/entities/user_learning_profile.dart';
 import '../../domain/repositories/story_trails_repository.dart';
 
 import '../datasources/story_trails_local_datasource.dart';
@@ -26,48 +30,44 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   });
 
   @override
-  Future<Either<Failures, List<StoryTrail>>> getStoryTrailsForLevel(
-    int level,
-  ) async {
+  Future<Either<Failures, StoryTrail?>> getStoryTrailForLevel(int level) async {
+    // Strategy: If online, fetch from remote to get the latest story.
+    // If offline, fall back to the local cache's logic to find the next available story.
     if (await networkInfo.isConnected) {
       try {
-        final remoteTrails = await remoteDataSource.getStoryTrailsForLevel(
-          level,
-        );
-        await localDataSource.cacheStoryTrailsForLevel(level, remoteTrails);
-        return Right(remoteTrails);
+        final remoteTrail = await remoteDataSource.getStoryTrailForLevel(level);
+        // If a new story is fetched, cache it for offline use.
+        if (remoteTrail != null) {
+          await localDataSource.cacheStoryTrail(remoteTrail);
+        }
+        return Right(remoteTrail);
       } on ServerException catch (e) {
-        // If remote fails, try to fall back to cache as a last resort
+        // If the server fails, we can still try to get a story from the local cache.
         try {
-          final localTrails = await localDataSource
-              .getCachedStoryTrailsForLevel(level);
-          return Right(localTrails);
+          final localTrail = await localDataSource.getCachedStoryTrailForLevel(
+            level,
+          );
+          return Right(localTrail);
         } on CacheException {
-          return Left(
-            ServerFailure(message: e.message),
-          ); // Return original server error if no cache
+          return Left(ServerFailure(message: e.message));
         }
       }
     } else {
-      // Offline: Directly fetch from local cache
+      // Offline: Directly fetch from the local cache.
       try {
-        final localTrails = await localDataSource.getCachedStoryTrailsForLevel(
+        final localTrail = await localDataSource.getCachedStoryTrailForLevel(
           level,
         );
-        return Right(localTrails);
-      } on CacheException {
-        return Left(
-          CacheFailure(
-            message:
-                'No cached stories for level $level and no internet connection.',
-          ),
-        );
+        return Right(localTrail);
+      } on CacheException catch (e) {
+        return Left(CacheFailure(message: e.message));
       }
     }
   }
 
   @override
   Future<Either<Failures, StoryTrail>> getStoryTrailById(String trailId) async {
+    // This logic remains largely the same, prioritizing remote if online.
     if (await networkInfo.isConnected) {
       try {
         final remoteTrail = await remoteDataSource.getStoryTrailById(trailId);
@@ -112,7 +112,6 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
       final localProgress = await localDataSource.getCachedUserStoryProgress(
         trailId,
       );
-      // If no local progress, return a default/initial progress state
       return Right(localProgress ?? StoryProgressModel(storyTrailId: trailId));
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message));
@@ -124,13 +123,11 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
     StoryProgress progress,
   ) async {
     try {
-      // Ensure we are working with a model instance to cache
       final progressModel = progress is StoryProgressModel
           ? progress
           : StoryProgressModel(
               storyTrailId: progress.storyTrailId,
               currentSegmentIndex: progress.currentSegmentIndex,
-              // CORRECT NAME: Use the new parameter name
               modelChallengeAttempts: progress.challengeAttempts.map(
                 (key, value) => MapEntry(key, value as ChallengeAttemptModel),
               ),
@@ -161,29 +158,32 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
         return await currentProgressEither.fold((failure) => Left(failure), (
           currentProgress,
         ) async {
-          // We need the model to use copyWith
           final currentProgressModel = currentProgress as StoryProgressModel;
-
           final segment = storyTrail.segments.firstWhere(
             (s) => s.id == segmentId,
           );
           final challenge = segment.challenge!;
+
           bool isCorrect = false;
+          String? feedbackMessage;
 
           if (challenge is SingleChoiceChallenge) {
             isCorrect = challenge.correctAnswerId == userAnswer;
+            feedbackMessage = isCorrect
+                ? challenge.correctFeedback
+                : challenge.incorrectFeedback;
           }
-          // Add other challenge evaluation logic here
 
           final newAttempt = ChallengeAttemptModel(
             challengeId: challengeId,
             userAnswer: userAnswer,
             isCorrect: isCorrect,
             attemptDate: DateTime.now(),
+            feedbackMessage: feedbackMessage,
           );
 
           final updatedAttempts = Map<String, ChallengeAttemptModel>.from(
-            currentProgressModel.challengeAttempts,
+            currentProgressModel.modelChallengeAttempts,
           );
           updatedAttempts[challengeId] = newAttempt;
 
@@ -212,38 +212,71 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   }
 
   @override
-  Future<Either<Failures, void>> markStoryTrailCompleted(String trailId) async {
+  Future<Either<Failures, LevelCompletionStatus>> markStoryTrailCompleted(
+    String trailId,
+  ) async {
     try {
-      final currentProgressEither = await getUserStoryProgress(trailId);
-      return await currentProgressEither.fold((failure) => Left(failure), (
-        currentProgress,
-      ) async {
-        final updatedProgress = (currentProgress as StoryProgressModel)
-            .copyWith(isCompleted: true, completionDate: DateTime.now());
-        await localDataSource.cacheUserStoryProgress(updatedProgress);
+      final progressEither = await getUserStoryProgress(trailId);
+      final profileEither = await getUserLearningProfile();
 
-        final userProfileEither = await getUserLearningProfile();
-        return await userProfileEither.fold((failure) => Left(failure), (
-          userProfile,
+      return await progressEither.fold(
+        (failure) => Left(failure),
+        (
+          progress,
+        ) async => await profileEither.fold((failure) => Left(failure), (
+          profile,
         ) async {
-          final updatedCompletedTrails = List<String>.from(
-            userProfile.completedTrailIds,
+          final updatedProgress = (progress as StoryProgressModel).copyWith(
+            isCompleted: true,
+            completionDate: DateTime.now(),
           );
-          if (!updatedCompletedTrails.contains(trailId)) {
-            updatedCompletedTrails.add(trailId);
+          await localDataSource.cacheUserStoryProgress(updatedProgress);
+
+          final currentLevel = profile.currentLearningLevel;
+          final completedTrails = List<String>.from(profile.completedTrailIds);
+          if (!completedTrails.contains(trailId)) {
+            completedTrails.add(trailId);
           }
 
-          final updatedProfile = (userProfile as UserLearningProfileModel)
-              .copyWith(
-                xpGlobal: userProfile.xpGlobal + updatedProgress.xpEarned,
-                completedTrailIds: updatedCompletedTrails,
-              );
-          await localDataSource.cacheUserLearningProfile(updatedProfile);
-          return const Right(null);
-        });
-      });
-    } on CacheException catch (e) {
-      return Left(CacheFailure(message: e.message));
+          // This is simplified logic. A real app would need a more robust way
+          // to check if all stories for a level are complete.
+          if (await networkInfo.isConnected) {
+            // Assuming for now that completing any story levels you up.
+            bool didLevelUp = true;
+
+            final updatedProfile = (profile as UserLearningProfileModel)
+                .copyWith(
+                  xpGlobal: profile.xpGlobal + updatedProgress.xpEarned,
+                  completedTrailIds: completedTrails,
+                  currentLearningLevel: didLevelUp
+                      ? currentLevel + 1
+                      : currentLevel,
+                );
+            await localDataSource.cacheUserLearningProfile(updatedProfile);
+
+            // This is now valid because of the import.
+            return Right(
+              LevelCompletionStatus(
+                didLevelUp: didLevelUp,
+                newLevel: updatedProfile.currentLearningLevel,
+              ),
+            );
+          } else {
+            // Cannot verify level completion offline. Assume no level up.
+            final updatedProfile = (profile as UserLearningProfileModel)
+                .copyWith(
+                  xpGlobal: profile.xpGlobal + updatedProgress.xpEarned,
+                  completedTrailIds: completedTrails,
+                );
+            await localDataSource.cacheUserLearningProfile(updatedProfile);
+
+            // This is now valid because of the import.
+            return Right(
+              LevelCompletionStatus(didLevelUp: false, newLevel: currentLevel),
+            );
+          }
+        }),
+      );
     } catch (e) {
       return Left(UnknownFailure(message: e.toString()));
     }
@@ -253,7 +286,6 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   Future<Either<Failures, UserLearningProfile>> getUserLearningProfile() async {
     try {
       final localProfile = await localDataSource.getCachedUserLearningProfile();
-      // TODO: Replace 'default_user_id' with actual user ID from your auth state
       return Right(
         localProfile ?? UserLearningProfileModel(userId: 'default_user_id'),
       );

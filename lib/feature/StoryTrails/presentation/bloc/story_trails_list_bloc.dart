@@ -4,7 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
 import '../../domain/usecases/get_user_learning_profile.dart';
-import '../../domain/usecases/get_story_trails_for_level.dart';
+import '../../domain/usecases/get_story_trail_for_level.dart';
 
 // Import the events and states we just created
 part 'story_trails_list_event.dart';

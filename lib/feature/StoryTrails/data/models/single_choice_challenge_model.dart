@@ -1,13 +1,13 @@
 import 'package:real_english/feature/StoryTrails/domain/entities/abstract_challenge.dart';
-import 'package:real_english/feature/StoryTrails/domain/entities/single_choice_challenge.dart';
 
+import '../../domain/entities/single_choice_challenge.dart';
 import 'challenge_model.dart';
 import 'choice_model.dart';
 import 'package:hive/hive.dart';
 
 part 'single_choice_challenge_model.g.dart';
 
-@HiveType(typeId: 4) // Unique ID for SingleChoiceChallengeModel
+@HiveType(typeId: 4)
 class SingleChoiceChallengeModel extends SingleChoiceChallenge
     implements ChallengeModel {
   const SingleChoiceChallengeModel({
@@ -15,6 +15,8 @@ class SingleChoiceChallengeModel extends SingleChoiceChallenge
     required super.prompt,
     required List<ChoiceModel> choices,
     required super.correctAnswerId,
+    super.correctFeedback,
+    super.incorrectFeedback,
   }) : super(choices: choices);
 
   factory SingleChoiceChallengeModel.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,8 @@ class SingleChoiceChallengeModel extends SingleChoiceChallenge
           .map((e) => ChoiceModel.fromJson(e as Map<String, dynamic>))
           .toList(),
       correctAnswerId: json['correct_answer_id'] as String,
+      correctFeedback: json['correct_feedback'] as String?,
+      incorrectFeedback: json['incorrect_feedback'] as String?,
     );
   }
 
@@ -36,8 +40,12 @@ class SingleChoiceChallengeModel extends SingleChoiceChallenge
       'challenge_type': type.name,
       'choices': (choices as List<ChoiceModel>).map((e) => e.toJson()).toList(),
       'correct_answer_id': correctAnswerId,
+      'correct_feedback': correctFeedback,
+      'incorrect_feedback': incorrectFeedback,
     };
   }
+
+  // --- FIX: ADD ALL REQUIRED HIVEFIELD OVERRIDES ---
 
   @override
   @HiveField(0)
@@ -58,4 +66,12 @@ class SingleChoiceChallengeModel extends SingleChoiceChallenge
   @override
   @HiveField(4)
   String get correctAnswerId => super.correctAnswerId;
+
+  @override
+  @HiveField(5)
+  String? get correctFeedback => super.correctFeedback;
+
+  @override
+  @HiveField(6)
+  String? get incorrectFeedback => super.incorrectFeedback;
 }

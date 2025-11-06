@@ -5,9 +5,9 @@ import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.da
 import 'package:real_english/feature/StoryTrails/domain/entities/user_learning_profile.dart';
 
 abstract class StoryTrailsRepository {
-  /// Fetches a list of Story Trails specifically for a given difficulty level.
-  /// This will be the primary way to get stories for the user's current level.
-  Future<Either<Failures, List<StoryTrail>>> getStoryTrailsForLevel(int level);
+  /// Fetches the next available story trail for the user's current level.
+  /// Returns `null` if all stories for the level are complete or if none exist.
+  Future<Either<Failures, StoryTrail?>> getStoryTrailForLevel(int level);
 
   /// Fetches a specific Story Trail by its ID. (Still useful for direct access or internal linking)
   Future<Either<Failures, StoryTrail>> getStoryTrailById(String trailId);

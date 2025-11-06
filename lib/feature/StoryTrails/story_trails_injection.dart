@@ -15,7 +15,7 @@ import 'presentation/bloc/story_trails_list_bloc.dart';
 
 // Domain
 import 'domain/repositories/story_trails_repository.dart';
-import 'domain/usecases/get_story_trails_for_level.dart';
+import 'domain/usecases/get_story_trail_for_level.dart';
 import 'domain/usecases/get_story_trail_by_id.dart';
 import 'domain/usecases/get_user_learning_profile.dart';
 import 'domain/usecases/get_user_story_progress.dart';

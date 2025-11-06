@@ -1,45 +1,40 @@
 import 'package:equatable/equatable.dart';
+
 import 'package:hive/hive.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/abstract_challenge.dart';
 
-part 'story_segment.g.dart'; // <--- ADD THIS LINE
+part 'story_segment.g.dart';
 
 // Represents a sequential part of a story
-// ... (rest of the StorySegment class is the same)
 class StorySegment extends Equatable {
   final String id;
   final SegmentType type;
-  final String audioUrl;
-  final String textContent;
+  final String textContent; // This will be used for TTS.
   final String? imageUrl;
   final Challenge? challenge;
 
   const StorySegment({
     required this.id,
     required this.type,
-    required this.audioUrl,
     required this.textContent,
     this.imageUrl,
     this.challenge,
   });
 
   @override
-  List<Object?> get props => [
-    id,
-    type,
-    audioUrl,
-    textContent,
-    imageUrl,
-    challenge,
-  ];
+  // --- UPDATED PROPS LIST ---
+  List<Object?> get props => [id, type, textContent, imageUrl, challenge];
 }
 
 @HiveType(typeId: 2)
 enum SegmentType {
+  // ... (enum definition remains the same)
   @HiveField(0)
   narration,
   @HiveField(1)
   choiceChallenge,
+  // NOTE: You might consider renaming or removing audioChallenge later
+  // if all audio is TTS-based. For now, we can leave it.
   @HiveField(2)
   audioChallenge,
   @HiveField(3)

@@ -19,28 +19,25 @@ class StorySegmentModelAdapter extends TypeAdapter<StorySegmentModel> {
     return StorySegmentModel(
       id: fields[0] as String,
       type: fields[1] as SegmentType,
-      audioUrl: fields[2] as String,
-      textContent: fields[3] as String,
-      imageUrl: fields[4] as String?,
-      challenge: fields[5] as Challenge?,
+      textContent: fields[2] as String,
+      imageUrl: fields[3] as String?,
+      challenge: fields[4] as Challenge?,
     );
   }
 
   @override
   void write(BinaryWriter writer, StorySegmentModel obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.type)
       ..writeByte(2)
-      ..write(obj.audioUrl)
-      ..writeByte(3)
       ..write(obj.textContent)
-      ..writeByte(4)
+      ..writeByte(3)
       ..write(obj.imageUrl)
-      ..writeByte(5)
+      ..writeByte(4)
       ..write(obj.challenge);
   }
 

@@ -75,7 +75,7 @@ class StoryProgressModel extends StoryProgress {
       currentSegmentIndex: currentSegmentIndex ?? this.currentSegmentIndex,
       // FIX: Use the explicit model field `this.modelChallengeAttempts` as the fallback.
       // This guarantees the type is Map<String, ChallengeAttemptModel>.
-      modelChallengeAttempts: challengeAttempts ?? this.modelChallengeAttempts,
+      modelChallengeAttempts: challengeAttempts ?? modelChallengeAttempts,
       isCompleted: isCompleted ?? this.isCompleted,
       completionDate: completionDate ?? this.completionDate,
       xpEarned: xpEarned ?? this.xpEarned,

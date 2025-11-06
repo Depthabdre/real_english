@@ -1,6 +1,5 @@
 // feature/story_trails/story_trails_injection.dart
 
-import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:internet_connection_checker_plus/internet_connection_checker_plus.dart';
 import 'package:real_english/feature/StoryTrails/presentation/bloc/story_player_bloc.dart';

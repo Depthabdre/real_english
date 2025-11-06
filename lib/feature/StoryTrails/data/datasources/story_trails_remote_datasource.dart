@@ -10,8 +10,6 @@ import '../models/story_segment_model.dart';
 import '../models/single_choice_challenge_model.dart';
 import '../models/choice_model.dart';
 
-
-
 // --- ABSTRACT CLASS DEFINITION ---
 // This is the contract our repository will depend on.
 abstract class StoryTrailsRemoteDataSource {
@@ -190,7 +188,7 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
     title: 'A Morning in the Park',
     description: 'Join Anna on her walk to the park and help her make choices.',
     imageUrl:
-        'https://images.unsplash.com/photo-1593980362394-8a4e098a5524?w=400', // Placeholder
+        'https://cbx-prod.b-cdn.net/COLOURBOX34598934.jpg?width=800&height=800&quality=70', // Placeholder
     difficultyLevel: 1,
     segments: [
       StorySegmentModel(
@@ -199,14 +197,16 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
         audioUrl: 'audio/narration_1.mp3',
         textContent:
             'Anna wakes up early. The sun is shining. She wants to go to the park.',
-        imageUrl: 'images/anna_wakes_up.png',
+        imageUrl:
+            'https://media.istockphoto.com/id/924465368/photo/child-girl-wakes-up-and-stretches-in-morning-in-bed-and-stretches.jpg?s=612x612&w=0&k=20&c=i2P9ez7plJorgd72pudhWfFHr5zOJlt9jzXMbrgdXmw=',
       ),
       StorySegmentModel(
         id: 'seg_02',
         type: SegmentType.choiceChallenge,
         audioUrl: 'audio/question_1.mp3',
         textContent: 'Hmm… should I take my ☂️ umbrella or my 😎 sunglasses?',
-        imageUrl: 'images/anna_at_window.png',
+        imageUrl:
+            'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQUunQdGFtHQSilnd_n1XxwQILozV_pmlq7mQ&s',
         challenge: SingleChoiceChallengeModel(
           id: 'challenge_01',
           prompt: 'Which one should Anna take?',

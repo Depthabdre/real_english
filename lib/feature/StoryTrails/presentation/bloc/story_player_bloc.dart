@@ -1,5 +1,3 @@
-// presentation/bloc/story_player_bloc.dart
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:real_english/feature/StoryTrails/data/models/story_progress_model.dart';
@@ -12,10 +10,8 @@ import 'package:real_english/feature/StoryTrails/domain/usecases/mark_story_trai
 import 'package:real_english/feature/StoryTrails/domain/usecases/save_user_story_progress.dart';
 import 'package:real_english/feature/StoryTrails/domain/usecases/submit_challenge_answer.dart';
 
-// Use 'part' to include the event and state files as part of this library
 part 'story_player_event.dart';
 part 'story_player_state.dart';
-
 
 class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   final GetStoryTrailById getStoryTrailByIdUseCase;
@@ -37,25 +33,28 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   }
 
   /// Handles loading the initial story data.
-  Future<void> _onStartStory(StartStory event, Emitter<StoryPlayerState> emit) async {
+  Future<void> _onStartStory(
+    StartStory event,
+    Emitter<StoryPlayerState> emit,
+  ) async {
     emit(StoryPlayerLoading());
 
-    final trailResult = await getStoryTrailByIdUseCase(GetStoryTrailByIdParams(trailId: event.trailId));
-    final progressResult = await getUserStoryProgressUseCase(GetUserStoryProgressParams(trailId: event.trailId));
+    final trailResult = await getStoryTrailByIdUseCase(
+      GetStoryTrailByIdParams(trailId: event.trailId),
+    );
 
-    // Use fold to handle success/failure of both API calls
     await trailResult.fold(
-      (failure) async => emit(StoryPlayerError(failure.message)),
+      (failure) async => emit(StoryPlayerError(failure.message, event.trailId)),
       (trail) async {
+        final progressResult = await getUserStoryProgressUseCase(
+          GetUserStoryProgressParams(trailId: event.trailId),
+        );
+
         await progressResult.fold(
-          (failure) async => emit(StoryPlayerError(failure.message)),
+          (failure) async =>
+              emit(StoryPlayerError(failure.message, event.trailId)),
           (progress) async {
-            // Success: Emit the display state with the loaded data
-            emit(StoryPlayerDisplay(
-              storyTrail: trail,
-              progress: progress,
-              currentSegmentIndex: progress.currentSegmentIndex,
-            ));
+            emit(StoryPlayerDisplay(storyTrail: trail, progress: progress));
           },
         );
       },
@@ -63,83 +62,81 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   }
 
   /// Handles the user's answer to a challenge.
-  Future<void> _onSubmitAnswer(SubmitAnswer event, Emitter<StoryPlayerState> emit) async {
+  Future<void> _onSubmitAnswer(
+    SubmitAnswer event,
+    Emitter<StoryPlayerState> emit,
+  ) async {
     final currentState = state;
-    if (currentState is! StoryPlayerDisplay) return; // Can only submit answers while displaying
+    if (currentState is! StoryPlayerDisplay) return;
 
     final currentSegment = currentState.currentSegment;
-    if (currentSegment.challenge == null) return; // Should not happen
+    if (currentSegment.challenge == null) return;
 
-    final result = await submitChallengeAnswerUseCase(SubmitChallengeAnswerParams(
-      trailId: currentState.storyTrail.id,
-      segmentId: currentSegment.id,
-      challengeId: currentSegment.challenge!.id,
-      userAnswer: event.chosenAnswerId,
-    ));
+    final result = await submitChallengeAnswerUseCase(
+      SubmitChallengeAnswerParams(
+        trailId: currentState.storyTrail.id,
+        segmentId: currentSegment.id,
+        challengeId: currentSegment.challenge!.id,
+        userAnswer: event.chosenAnswerId,
+      ),
+    );
 
     await result.fold(
-      (failure) async => emit(StoryPlayerError(failure.message)),
+      (failure) async =>
+          emit(StoryPlayerError(failure.message, currentState.storyTrail.id)),
       (updatedProgress) async {
-        // After a successful answer, advance to the next segment
-        _advanceToNextSegment(
+        await _advanceToNextSegment(
           emit,
           currentState.storyTrail,
           updatedProgress,
-          currentState.currentSegmentIndex,
         );
       },
     );
   }
-  
+
   /// Handles advancing the story after a narration segment is complete.
-  Future<void> _onNarrationFinished(NarrationFinished event, Emitter<StoryPlayerState> emit) async {
+  Future<void> _onNarrationFinished(
+    NarrationFinished event,
+    Emitter<StoryPlayerState> emit,
+  ) async {
     final currentState = state;
     if (currentState is! StoryPlayerDisplay) return;
 
-    // Just advance to the next segment with the current progress
-     _advanceToNextSegment(
+    await _advanceToNextSegment(
       emit,
       currentState.storyTrail,
       currentState.progress,
-      currentState.currentSegmentIndex,
     );
   }
-
 
   /// A shared helper method to advance the story to the next segment or finish it.
   Future<void> _advanceToNextSegment(
     Emitter<StoryPlayerState> emit,
     StoryTrail trail,
     StoryProgress currentProgress,
-    int currentSegmentIndex,
   ) async {
-    final nextIndex = currentSegmentIndex + 1;
+    final nextIndex = currentProgress.currentSegmentIndex + 1;
 
     // Check if the story is finished
     if (nextIndex >= trail.segments.length) {
-      // Mark the trail as completed in the backend/local storage
       await markStoryTrailCompletedUseCase(
         MarkStoryTrailCompletedParams(trailId: trail.id),
       );
-      // Emit the finished state
       emit(StoryPlayerFinished(finalProgress: currentProgress));
     } else {
-      // If not finished, update the progress with the new segment index
+      // If not finished, create a new progress object with the updated index
       final newProgress = (currentProgress as StoryProgressModel).copyWith(
         currentSegmentIndex: nextIndex,
       );
-      
-      // Save the updated progress so the user can resume from the next segment
+
+      // Save the updated progress
       await saveUserStoryProgressUseCase(
         SaveUserStoryProgressParams(progress: newProgress),
       );
 
       // Emit the display state for the new segment
-      emit(StoryPlayerDisplay(
-        storyTrail: trail,
-        progress: newProgress,
-        currentSegmentIndex: nextIndex,
-      ));
+      // This works because `newProgress` is a new object, so Equatable detects the change.
+      emit(StoryPlayerDisplay(storyTrail: trail, progress: newProgress));
     }
   }
 }

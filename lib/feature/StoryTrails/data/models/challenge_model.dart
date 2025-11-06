@@ -26,12 +26,6 @@ abstract class ChallengeModel extends Challenge {
     }
   }
 
-  @override
-  String get id => super.id;
-  @override
-  String get prompt => super.prompt;
-  @override
-  ChallengeType get type => super.type;
 }
 
 

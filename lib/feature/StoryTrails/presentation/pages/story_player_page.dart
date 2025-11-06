@@ -27,11 +27,8 @@ class StoryPlayerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
-        // The title can change based on the state
         title: BlocBuilder<StoryPlayerBloc, StoryPlayerState>(
           builder: (context, state) {
             if (state is StoryPlayerDisplay) {
@@ -41,18 +38,14 @@ class StoryPlayerView extends StatelessWidget {
           },
         ),
       ),
-      body: BlocConsumer<StoryPlayerBloc, StoryPlayerState>(
-        listener: (context, state) {
-          // You can show snackbars for feedback here if you want
-          // For example, when an answer is correct/incorrect.
-        },
+      body: BlocBuilder<StoryPlayerBloc, StoryPlayerState>(
         builder: (context, state) {
           if (state is StoryPlayerLoading || state is StoryPlayerInitial) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (state is StoryPlayerError) {
-            return _buildErrorState(context, state.message);
+            return _buildErrorState(context, state);
           }
 
           if (state is StoryPlayerFinished) {
@@ -60,18 +53,20 @@ class StoryPlayerView extends StatelessWidget {
           }
 
           if (state is StoryPlayerDisplay) {
-            // This is the main view. We build the UI based on the segment type.
             final segment = state.currentSegment;
-            switch (segment.type) {
-              case SegmentType.narration:
-                return _buildNarrationSegment(context, segment);
-              case SegmentType.choiceChallenge:
-                return _buildChoiceChallengeSegment(context, segment);
-              default:
-                return Center(
-                  child: Text('Unsupported segment type: ${segment.type.name}'),
-                );
-            }
+            // Use AnimatedSwitcher for smooth transitions between segments
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              child: Container(
+                // Add a key to help AnimatedSwitcher differentiate widgets
+                key: ValueKey<String>(segment.id),
+                child: switch (segment.type) {
+                  SegmentType.narration => _buildNarrationSegment(context, segment),
+                  SegmentType.choiceChallenge => _buildChoiceChallengeSegment(context, segment),
+                  _ => Center(child: Text('Unsupported segment type: ${segment.type.name}')),
+                },
+              ),
+            );
           }
 
           return const Center(child: Text('An unknown state occurred.'));
@@ -90,11 +85,8 @@ class StoryPlayerView extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // TODO: Implement image display from segment.imageUrl
-          // if (segment.imageUrl != null) Image.asset(segment.imageUrl!),
-
-          // TODO: Implement audio playback from segment.audioUrl
-          // IconButton(icon: Icon(Icons.play_arrow), onPressed: () { ... }),
+          _buildSegmentImage(segment.imageUrl), // Reusable image widget
+          const SizedBox(height: 24),
           Text(
             segment.textContent,
             style: theme.textTheme.headlineSmall,
@@ -103,7 +95,6 @@ class StoryPlayerView extends StatelessWidget {
           const SizedBox(height: 48),
           ElevatedButton(
             onPressed: () {
-              // In a real app, this would be triggered automatically when the audio finishes.
               context.read<StoryPlayerBloc>().add(NarrationFinished());
             },
             child: const Text('Continue'),
@@ -113,10 +104,7 @@ class StoryPlayerView extends StatelessWidget {
     );
   }
 
-  Widget _buildChoiceChallengeSegment(
-    BuildContext context,
-    StorySegment segment,
-  ) {
+  Widget _buildChoiceChallengeSegment(BuildContext context, StorySegment segment) {
     final theme = Theme.of(context);
     final challenge = segment.challenge as SingleChoiceChallenge;
 
@@ -126,6 +114,8 @@ class StoryPlayerView extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildSegmentImage(segment.imageUrl), // Reusable image widget
+          const SizedBox(height: 24),
           Text(
             challenge.prompt,
             style: theme.textTheme.headlineSmall,
@@ -141,14 +131,39 @@ class StoryPlayerView extends StatelessWidget {
                 ),
                 onPressed: () {
                   context.read<StoryPlayerBloc>().add(
-                    SubmitAnswer(chosenAnswerId: choice.id),
-                  );
+                        SubmitAnswer(chosenAnswerId: choice.id),
+                      );
                 },
                 child: Text(choice.text),
               ),
             );
-          }).toList(),
+          }),
         ],
+      ),
+    );
+  }
+
+  // A new reusable widget to handle image display
+  Widget _buildSegmentImage(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return const SizedBox.shrink(); // Don't show anything if there's no image
+    }
+    return Container(
+      height: 200,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return const Center(child: CircularProgressIndicator());
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey);
+        },
       ),
     );
   }
@@ -173,18 +188,17 @@ class StoryPlayerView extends StatelessWidget {
             const SizedBox(height: 48),
             ElevatedButton(
               onPressed: () {
-                // Navigate back to the list of stories
                 context.go('/story-trails');
               },
               child: const Text('Back to Adventures'),
-            ),
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildErrorState(BuildContext context, String message) {
+  Widget _buildErrorState(BuildContext context, StoryPlayerError state) {
     final theme = Theme.of(context);
     return Center(
       child: Padding(
@@ -194,26 +208,14 @@ class StoryPlayerView extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, color: Colors.redAccent, size: 64),
             const SizedBox(height: 16),
-            Text(
-              'Oh no!',
-              style: theme.textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
+            Text('Oh no!', style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text(
-              message,
-              style: theme.textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
+            Text(state.message, style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
-                // This assumes the trailId is accessible. A real implementation might need to
-                // get the trailId from the current state if possible, or pass it down.
-                // For now, this approach is simplified. A better way is to get it from the state.
-                final currentState = context.read<StoryPlayerBloc>().state;
-                // A more robust way would be to store the trailId in the state itself.
-                // For now, this shows the intent.
+                // Use the trailId from the state to reliably retry.
+                context.read<StoryPlayerBloc>().add(StartStory(trailId: state.trailId));
               },
               child: const Text('Try Again'),
             ),

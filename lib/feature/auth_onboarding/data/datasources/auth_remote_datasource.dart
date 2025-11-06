@@ -44,7 +44,8 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   final GoogleSignIn googleSignInInstance; // Now injected for testability
 
   // Base URL for your backend API, configured for the Android Emulator.
-  final String _baseUrl = "http://10.68.82.123:3000/api/auth";
+  //10.68.82.123
+  final String _baseUrl = "http://10.231.31.123:3000/api/auth";
 
   AuthRemoteDatasourceImpl({
     required this.client,

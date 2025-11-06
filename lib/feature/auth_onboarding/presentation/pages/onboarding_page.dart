@@ -24,10 +24,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
           "Your fun and personal journey to mastering English starts here.",
     ),
     const _OnboardingContent(
-      icon: Icons.quiz_rounded,
-      title: "Interactive Quizzes",
+      icon: Icons.park_rounded, // A friendly, natural icon
+      title: "Learn Without Realizing It",
       description:
-          "Test your knowledge with quizzes designed for all skill levels and track your progress.",
+          "Participate in daily stories and challenges that feel like a game. Master English in context, just like you learned your first language.",
     ),
     const _OnboardingContent(
       icon: Icons.mic_rounded,

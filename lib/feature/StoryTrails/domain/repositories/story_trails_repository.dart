@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:real_english/core/errors/failures.dart';
+import 'package:real_english/feature/StoryTrails/domain/entities/level_completion_status.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_progress.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/user_learning_profile.dart';
@@ -28,7 +29,7 @@ abstract class StoryTrailsRepository {
 
   /// Marks a specific Story Trail as completed by the user.
   /// This will also update the user's overall learning profile (e.g., add to completed trails, update XP).
-  Future<Either<Failures, void>> markStoryTrailCompleted(String trailId);
+   Future<Either<Failures, LevelCompletionStatus>> markStoryTrailCompleted(String trailId);
 
   // --- New methods for User Learning Profile and Leveling ---
 

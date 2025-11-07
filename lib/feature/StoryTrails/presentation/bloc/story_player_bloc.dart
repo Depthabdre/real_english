@@ -1,6 +1,8 @@
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:real_english/feature/StoryTrails/data/models/story_progress_model.dart';
+import 'package:real_english/feature/StoryTrails/domain/entities/level_completion_status.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_progress.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_segment.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
@@ -12,6 +14,8 @@ import 'package:real_english/feature/StoryTrails/domain/usecases/submit_challeng
 
 part 'story_player_event.dart';
 part 'story_player_state.dart';
+
+// It's good practice to import the full path for clarity
 
 class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   final GetStoryTrailById getStoryTrailByIdUseCase;
@@ -32,7 +36,6 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     on<NarrationFinished>(_onNarrationFinished);
   }
 
-  /// Handles loading the initial story data.
   Future<void> _onStartStory(
     StartStory event,
     Emitter<StoryPlayerState> emit,
@@ -43,25 +46,22 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
       GetStoryTrailByIdParams(trailId: event.trailId),
     );
 
+    // Use a clean fold pattern
     await trailResult.fold(
       (failure) async => emit(StoryPlayerError(failure.message, event.trailId)),
       (trail) async {
         final progressResult = await getUserStoryProgressUseCase(
           GetUserStoryProgressParams(trailId: event.trailId),
         );
-
-        await progressResult.fold(
-          (failure) async =>
-              emit(StoryPlayerError(failure.message, event.trailId)),
-          (progress) async {
-            emit(StoryPlayerDisplay(storyTrail: trail, progress: progress));
-          },
+        progressResult.fold(
+          (failure) => emit(StoryPlayerError(failure.message, event.trailId)),
+          (progress) =>
+              emit(StoryPlayerDisplay(storyTrail: trail, progress: progress)),
         );
       },
     );
   }
 
-  /// Handles the user's answer to a challenge.
   Future<void> _onSubmitAnswer(
     SubmitAnswer event,
     Emitter<StoryPlayerState> emit,
@@ -85,16 +85,36 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
       (failure) async =>
           emit(StoryPlayerError(failure.message, currentState.storyTrail.id)),
       (updatedProgress) async {
-        await _advanceToNextSegment(
-          emit,
-          currentState.storyTrail,
-          updatedProgress,
-        );
+        // --- 1. HANDLE FEEDBACK ---
+        final lastAttempt =
+            updatedProgress.challengeAttempts[currentSegment.challenge!.id];
+
+        // Show feedback if it exists
+        if (lastAttempt?.feedbackMessage?.isNotEmpty ?? false) {
+          emit(
+            AnswerFeedback(
+              isCorrect: lastAttempt!.isCorrect,
+              feedbackMessage: lastAttempt.feedbackMessage!,
+              displayState: currentState.copyWith(progress: updatedProgress),
+            ),
+          );
+          // Wait so the user can read the feedback
+          await Future.delayed(const Duration(seconds: 2));
+        }
+
+        // --- 2. ADVANCE THE STORY ---
+        // Ensure we are not in a feedback state before advancing
+        if (state is AnswerFeedback || state is StoryPlayerDisplay) {
+          await _advanceToNextSegment(
+            emit,
+            currentState.storyTrail,
+            updatedProgress,
+          );
+        }
       },
     );
   }
 
-  /// Handles advancing the story after a narration segment is complete.
   Future<void> _onNarrationFinished(
     NarrationFinished event,
     Emitter<StoryPlayerState> emit,
@@ -109,7 +129,6 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     );
   }
 
-  /// A shared helper method to advance the story to the next segment or finish it.
   Future<void> _advanceToNextSegment(
     Emitter<StoryPlayerState> emit,
     StoryTrail trail,
@@ -117,26 +136,48 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   ) async {
     final nextIndex = currentProgress.currentSegmentIndex + 1;
 
-    // Check if the story is finished
     if (nextIndex >= trail.segments.length) {
-      await markStoryTrailCompletedUseCase(
+      // --- HANDLE STORY COMPLETION AND LEVEL UP ---
+      final result = await markStoryTrailCompletedUseCase(
         MarkStoryTrailCompletedParams(trailId: trail.id),
       );
-      emit(StoryPlayerFinished(finalProgress: currentProgress));
+
+      result.fold(
+        (failure) => emit(StoryPlayerError(failure.message, trail.id)),
+        (status) {
+          // Check the status returned from the repository
+          if (status.didLevelUp) {
+            emit(LevelCompleted(newLevel: status.newLevel));
+          } else {
+            emit(StoryPlayerFinished(finalProgress: currentProgress));
+          }
+        },
+      );
     } else {
-      // If not finished, create a new progress object with the updated index
+      // --- HANDLE ADVANCING TO THE NEXT SEGMENT ---
       final newProgress = (currentProgress as StoryProgressModel).copyWith(
         currentSegmentIndex: nextIndex,
       );
 
-      // Save the updated progress
       await saveUserStoryProgressUseCase(
         SaveUserStoryProgressParams(progress: newProgress),
       );
 
-      // Emit the display state for the new segment
-      // This works because `newProgress` is a new object, so Equatable detects the change.
       emit(StoryPlayerDisplay(storyTrail: trail, progress: newProgress));
     }
+  }
+}
+
+// Extension to add a `copyWith` method to the StoryPlayerDisplay state.
+// This is crucial for the feedback logic to work correctly.
+extension StoryPlayerDisplayExtension on StoryPlayerDisplay {
+  StoryPlayerDisplay copyWith({
+    StoryTrail? storyTrail,
+    StoryProgress? progress,
+  }) {
+    return StoryPlayerDisplay(
+      storyTrail: storyTrail ?? this.storyTrail,
+      progress: progress ?? this.progress,
+    );
   }
 }

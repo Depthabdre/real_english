@@ -1,6 +1,9 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
+
 import '../../../../core/errors/failures.dart';
+// --- ADD THIS IMPORT ---
+import '../entities/level_completion_status.dart';
 import '../repositories/story_trails_repository.dart';
 
 class MarkStoryTrailCompleted {
@@ -8,7 +11,9 @@ class MarkStoryTrailCompleted {
 
   MarkStoryTrailCompleted(this.repository);
 
-  Future<Either<Failures, void>> call(
+  // --- UPDATE THE RETURN TYPE HERE ---
+  // It no longer returns `void`, but `LevelCompletionStatus`.
+  Future<Either<Failures, LevelCompletionStatus>> call(
     MarkStoryTrailCompletedParams params,
   ) async {
     return await repository.markStoryTrailCompleted(params.trailId);

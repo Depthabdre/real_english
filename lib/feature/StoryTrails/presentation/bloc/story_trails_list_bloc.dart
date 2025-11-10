@@ -32,14 +32,13 @@ class StoryTrailsListBloc extends Bloc<StoryTrailsListEvent, StoryTrailsListStat
     await profileResult.fold(
       (failure) async => emit(StoryTrailsListError(failure.message)),
       (learningProfile) async {
-        // --- CHANGE: Call the new singular use case ---
+
         final trailResult = await getStoryTrailForLevelUseCase(
           GetStoryTrailForLevelParams(level: learningProfile.currentLearningLevel),
         );
 
         trailResult.fold(
           (failure) => emit(StoryTrailsListError(failure.message)),
-          // The result is now a single nullable storyTrail
           (storyTrail) => emit(StoryTrailsListLoaded(
             storyTrail: storyTrail,
             currentLevel: learningProfile.currentLearningLevel,

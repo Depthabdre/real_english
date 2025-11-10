@@ -286,9 +286,31 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   Future<Either<Failures, UserLearningProfile>> getUserLearningProfile() async {
     try {
       final localProfile = await localDataSource.getCachedUserLearningProfile();
-      return Right(
-        localProfile ?? UserLearningProfileModel(userId: 'default_user_id'),
-      );
+
+      if (localProfile != null) {
+        // If a profile exists in the cache, return it.
+        return Right(localProfile);
+      } else {
+        // If the cache is empty (new user), create and return a complete, default profile.
+        // This is our "dummy" data for a fresh start.
+        print("🔹 No cached profile found. Creating a default profile.");
+
+        // TODO: In a real app, this ID should be fetched from your authentication state
+        // (e.g., from the currently logged-in user).
+        const defaultUserId = 'new_user_placeholder_id';
+
+        final defaultProfile = UserLearningProfileModel(
+          userId: defaultUserId,
+          currentLearningLevel: 1, // All users start at level 1
+          xpGlobal: 0, // All users start with 0 XP
+          completedTrailIds: [], // All users start with no completed trails
+        );
+
+        // Optionally, cache this new default profile right away
+        await localDataSource.cacheUserLearningProfile(defaultProfile);
+
+        return Right(defaultProfile);
+      }
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message));
     }
@@ -299,6 +321,7 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
     UserLearningProfile profile,
   ) async {
     try {
+      // This logic is already correct. It ensures we always cache a Model.
       final profileModel = profile is UserLearningProfileModel
           ? profile
           : UserLearningProfileModel(

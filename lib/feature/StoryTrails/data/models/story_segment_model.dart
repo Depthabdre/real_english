@@ -1,5 +1,4 @@
 import 'package:real_english/feature/StoryTrails/data/models/challenge_model.dart';
-import 'package:real_english/feature/StoryTrails/data/models/single_choice_challenge_model.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/abstract_challenge.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_segment.dart';
 

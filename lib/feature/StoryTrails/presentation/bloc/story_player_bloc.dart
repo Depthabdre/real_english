@@ -2,7 +2,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:real_english/feature/StoryTrails/data/models/story_progress_model.dart';
-import 'package:real_english/feature/StoryTrails/domain/entities/level_completion_status.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_progress.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_segment.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';

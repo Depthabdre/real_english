@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
 
 import '../../../../app/injection_container.dart';
@@ -26,7 +25,10 @@ class StoryTrailsListPage extends StatelessWidget {
                 Image.asset(
                   'assets/images/story_background.jpg', // TODO: Add a nice background image to your assets
                   fit: BoxFit.cover,
-                  color: Colors.black.withOpacity(
+                  color: Color.fromRGBO(
+                    0,
+                    0,
+                    0,
                     0.4,
                   ), // Darken the image for text readability
                   colorBlendMode: BlendMode.darken,

@@ -44,7 +44,7 @@ class AppTheme {
     cardColor: const Color(0xFF1E1E1E),
     shadowColor: Colors.transparent,
     textTheme: const TextTheme(
-      bodyLarge: TextStyle(color: Color.fromARGB(255, 36, 11, 11)),
+      bodyLarge: TextStyle(color: Colors.white),
       bodyMedium: TextStyle(color: Color(0xFFB0BEC5)),
       titleLarge: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
     ),

@@ -1,10 +1,10 @@
+import 'dart:ui'; // Needed for ImageFilter.blur
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
-
 import '../../../../app/injection_container.dart';
 import '../bloc/story_trails_list_bloc.dart';
-import '../widgets/story_trail_card.dart'; // We can still reuse our card widget
 
 class StoryTrailsListPage extends StatelessWidget {
   const StoryTrailsListPage({super.key});
@@ -17,30 +17,20 @@ class StoryTrailsListPage extends StatelessWidget {
             sl<StoryTrailsListBloc>()..add(FetchStoryTrailsList()),
         child: BlocBuilder<StoryTrailsListBloc, StoryTrailsListState>(
           builder: (context, state) {
-            // Use a Stack to place content on top of a background image
+            // Main stack with the new storybook background
             return Stack(
               fit: StackFit.expand,
               children: [
-                // 1. BACKGROUND IMAGE
+                // 1. Background Image
                 Image.asset(
-                  'assets/images/story_background.jpg', // TODO: Add a nice background image to your assets
+                  // IMPORTANT: Make sure this path is correct in your project
+                  'assets/images/adventure_background4.png',
                   fit: BoxFit.cover,
-                  color: Color.fromRGBO(
-                    0,
-                    0,
-                    0,
-                    0.4,
-                  ), // Darken the image for text readability
-                  colorBlendMode: BlendMode.darken,
                 ),
-
-                // 2. MAIN CONTENT
                 SafeArea(
                   child: switch (state) {
                     StoryTrailsListInitial() ||
-                    StoryTrailsListLoading() => const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
+                    StoryTrailsListLoading() => _buildLoadingState(),
 
                     StoryTrailsListError(message: final msg) =>
                       _buildErrorState(context, msg),
@@ -51,7 +41,7 @@ class StoryTrailsListPage extends StatelessWidget {
                               context,
                               state.currentLevel,
                             )
-                          : _buildAdventureCard(context, story),
+                          : _buildAdventureView(context, story),
 
                     _ => const Center(child: Text('Something went wrong.')),
                   },
@@ -64,50 +54,199 @@ class StoryTrailsListPage extends StatelessWidget {
     );
   }
 
-  // Widget to display the single, focused story adventure
-  Widget _buildAdventureCard(BuildContext context, StoryTrail storyTrail) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            "Today's Adventure",
-            style: theme.textTheme.headlineMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+  /// Builds the main adventure screen, styled to match the provided UI image.
+  Widget _buildAdventureView(BuildContext context, StoryTrail storyTrail) {
+    // This is the custom font name you need to set up in pubspec.yaml
+    const String storybookFont = 'YourStorybookFont';
+
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 2. "Today's Adventure" Title
+              Text(
+                "Today's Adventure",
+                style: TextStyle(
+                  fontFamily: storybookFont,
+                  fontSize: 36,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withAlpha(102),
+                      offset: const Offset(3, 3),
+                      blurRadius: 5,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 3. Frosted Glass Card
+              ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 32.0,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withAlpha(15),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withAlpha(51),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 4. Circular Image - NOW LARGER
+                        CircleAvatar(
+                          radius: 60, // <-- Increased from 50
+                          backgroundColor: Colors.white.withAlpha(204),
+                          child: ClipOval(
+                            child: SizedBox.fromSize(
+                              size: const Size.fromRadius(
+                                58,
+                              ), // <-- Increased from 48
+                              child: Image.network(
+                                storyTrail.imageUrl,
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, progress) {
+                                  if (progress == null) return child;
+                                  return const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(
+                                      Icons.image_not_supported,
+                                      color: Colors.grey,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 5. Card Title
+                        Text(
+                          storyTrail.title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: storybookFont,
+                            fontSize: 28,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // 6. Card Description
+                        Text(
+                          storyTrail.description,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withAlpha(230),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+
+                        // 7. Start Adventure Button
+                        _buildStartButton(context, storyTrail),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-          // We reuse the card widget we built before!
-          StoryTrailCard(storyTrail: storyTrail),
-        ],
+        ),
       ),
     );
   }
 
-  // Widget to display when all stories for the current level are complete
+  /// Builds the button styled to match the UI.
+  Widget _buildStartButton(BuildContext context, StoryTrail storyTrail) {
+    return ElevatedButton(
+      onPressed: () {
+        context.go('/story-trails/player/${storyTrail.id}');
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF6AABF3), // Specific blue from image
+        foregroundColor: Colors.black,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30), // Pill shape
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
+      child: const Text('Start Adventure'),
+    );
+  }
+
+  // --- Helper widgets restyled for consistency ---
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 4),
+    );
+  }
+
+  // Helper widget for a consistent frosted glass container look
+  Widget _buildOverlayContainer({required Widget child}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(24.0),
+              decoration: BoxDecoration(
+                color: Colors.black.withAlpha(128),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAllLevelsCompleteView(BuildContext context, int currentLevel) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.all(32.0),
+    return _buildOverlayContainer(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.celebration_rounded, color: Colors.amber, size: 80),
           const SizedBox(height: 24),
           Text(
             "You're All Caught Up!",
-            style: theme.textTheme.headlineMedium?.copyWith(
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               color: Colors.white,
+              fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Text(
-            "You've completed all the adventures for Level $currentLevel. New stories are on their way. Great job!",
-            style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white70),
+            "You've completed all adventures for Level $currentLevel. New stories are coming soon!",
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
             textAlign: TextAlign.center,
           ),
         ],
@@ -115,18 +254,16 @@ class StoryTrailsListPage extends StatelessWidget {
     );
   }
 
-  // Helper for showing an error
   Widget _buildErrorState(BuildContext context, String message) {
-    // ... (This can be the same error widget as before, but adapted for a dark background)
-    return Center(
+    return _buildOverlayContainer(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.error_outline, color: Colors.redAccent, size: 64),
           const SizedBox(height: 16),
           Text(
             message,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.white, fontSize: 16),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),

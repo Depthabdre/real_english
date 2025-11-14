@@ -12,7 +12,6 @@ import '../models/choice_model.dart';
 // Dependency from the Auth feature to get the auth token.
 import '../../../auth_onboarding/data/datasources/auth_local_datasource.dart';
 
-
 // --- ABSTRACT CLASS DEFINITION (Updated) ---
 abstract class StoryTrailsRemoteDataSource {
   /// Fetches the next available story trail for a given [level] from the remote API.
@@ -22,7 +21,6 @@ abstract class StoryTrailsRemoteDataSource {
   /// Fetches a single [StoryTrailModel] by its [trailId] from the remote API.
   Future<StoryTrailModel> getStoryTrailById(String trailId);
 }
-
 
 // --- DUMMY & REAL IMPLEMENTATION (Updated) ---
 class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
@@ -49,9 +47,13 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
   Exception _handleError(http.Response response) {
     try {
       final errorData = json.decode(response.body);
-      return ServerException(message: errorData['error'] ?? 'An unknown server error occurred.');
+      return ServerException(
+        message: errorData['error'] ?? 'An unknown server error occurred.',
+      );
     } catch (e) {
-      return ServerException(message: 'Failed to parse error response: ${response.body}');
+      return ServerException(
+        message: 'Failed to parse error response: ${response.body}',
+      );
     }
   }
 
@@ -63,12 +65,16 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
       return _getDummyTrailForLevel(level);
     } else {
       final response = await client.get(
-        Uri.parse('$_baseUrl/level/$level/next'), // API endpoint to get the next uncompleted story
+        Uri.parse(
+          '$_baseUrl/level/$level/next',
+        ), // API endpoint to get the next uncompleted story
         headers: await _getAuthHeaders,
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(response.body)['data'];
+        final Map<String, dynamic> jsonData = json.decode(
+          response.body,
+        )['data'];
         return StoryTrailModel.fromJson(jsonData);
       } else if (response.statusCode == 404) {
         // A 404 from this endpoint means the level is complete.
@@ -92,7 +98,9 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(response.body)['data'];
+        final Map<String, dynamic> jsonData = json.decode(
+          response.body,
+        )['data'];
         return StoryTrailModel.fromJson(jsonData);
       } else {
         throw _handleError(response);
@@ -126,20 +134,24 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
     id: 'trail_001',
     title: 'A Morning in the Park',
     description: 'Join Anna on her walk to the park and help her make choices.',
-    imageUrl: 'https://images.unsplash.com/photo-1593980362394-8a4e098a5524?w=400',
+    imageUrl:
+        'https://images.unsplash.com/photo-1593980362394-8a4e098a5524?w=400',
     difficultyLevel: 1,
     segments: [
       StorySegmentModel(
         id: 'seg_01',
         type: SegmentType.narration,
-        textContent: 'Anna wakes up early. The sun is shining. She wants to go to the park.',
-        imageUrl: 'https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0?w=400',
+        textContent:
+            'Anna wakes up early. The sun is shining. She wants to go to the park.',
+        imageUrl:
+            'https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0?w=400',
       ),
       StorySegmentModel(
         id: 'seg_02',
         type: SegmentType.choiceChallenge,
         textContent: 'Hmm… should I take my umbrella or my sunglasses?',
-        imageUrl: 'https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=400',
+        imageUrl:
+            'https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=400',
         challenge: SingleChoiceChallengeModel(
           id: 'challenge_01',
           prompt: 'Which one should Anna take?',
@@ -149,7 +161,8 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
           ],
           correctAnswerId: 'choice_01b',
           correctFeedback: "Great choice! It's sunny today. Let's go! ☀️",
-          incorrectFeedback: "Oh no! The sun is shining too bright for an umbrella! 😅",
+          incorrectFeedback:
+              "Oh no! The sun is shining too bright for an umbrella! 😅",
         ),
       ),
     ],
@@ -160,7 +173,8 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
     id: 'trail_002',
     title: "Tom's Lost Cat",
     description: "Help Tom find his fluffy cat, Mittens.",
-    imageUrl: 'https://placekitten.com/400/300',
+    imageUrl:
+        'https://cdn.forumcomm.com/dims4/default/eb8005a/2147483647/strip/true/crop/1170x792+0+0/resize/840x569!/quality/90/?url=https%3A%2F%2Fforum-communications-production-web.s3.us-west-2.amazonaws.com%2Fbrightspot%2Fe2%2Ffb%2Feee044a64e559e99b2c30ac6f908%2Ftom-from-marie.jpg',
     difficultyLevel: 2,
     segments: [],
   );

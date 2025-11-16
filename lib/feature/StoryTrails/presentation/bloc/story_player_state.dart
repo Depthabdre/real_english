@@ -14,20 +14,38 @@ class StoryPlayerDisplay extends StoryPlayerState {
   final StoryTrail storyTrail;
   final StoryProgress progress;
 
-  const StoryPlayerDisplay({required this.storyTrail, required this.progress});
+  // --- NEW: A cache to hold preloaded audio data ---
+  final Map<String, Uint8List> audioCache;
+
+  const StoryPlayerDisplay({
+    required this.storyTrail,
+    required this.progress,
+    this.audioCache = const {}, // Default to an empty map
+  });
 
   int get currentSegmentIndex => progress.currentSegmentIndex;
   StorySegment get currentSegment => storyTrail.segments[currentSegmentIndex];
 
   @override
-  List<Object?> get props => [storyTrail, progress];
+  List<Object?> get props => [storyTrail, progress, audioCache];
+
+  // --- NEW: A full copyWith method for easier state updates ---
+  StoryPlayerDisplay copyWith({
+    StoryTrail? storyTrail,
+    StoryProgress? progress,
+    Map<String, Uint8List>? audioCache,
+  }) {
+    return StoryPlayerDisplay(
+      storyTrail: storyTrail ?? this.storyTrail,
+      progress: progress ?? this.progress,
+      audioCache: audioCache ?? this.audioCache,
+    );
+  }
 }
 
-// --- NEW STATE for showing feedback ---
 class AnswerFeedback extends StoryPlayerState {
   final bool isCorrect;
   final String feedbackMessage;
-  // We include the previous display state so the UI can still show the story in the background
   final StoryPlayerDisplay displayState;
 
   const AnswerFeedback({
@@ -47,7 +65,6 @@ class StoryPlayerFinished extends StoryPlayerState {
   List<Object> get props => [finalProgress];
 }
 
-// --- NEW STATE for leveling up ---
 class LevelCompleted extends StoryPlayerState {
   final int newLevel;
   const LevelCompleted({required this.newLevel});

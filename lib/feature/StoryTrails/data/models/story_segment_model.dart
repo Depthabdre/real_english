@@ -1,8 +1,7 @@
+import 'package:hive/hive.dart';
 import 'package:real_english/feature/StoryTrails/data/models/challenge_model.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/abstract_challenge.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_segment.dart';
-
-import 'package:hive/hive.dart';
 
 part 'story_segment_model.g.dart';
 
@@ -13,15 +12,13 @@ class StorySegmentModel extends StorySegment {
     required super.type,
     required super.textContent,
     super.imageUrl,
+    super.audioEndpoint, // Add to constructor
     super.challenge,
   });
 
   factory StorySegmentModel.fromJson(Map<String, dynamic> json) {
-    // This is the logic to parse the nested challenge object.
     Challenge? challengeModel;
     if (json['challenge'] != null) {
-      // The ChallengeModel.fromJson factory correctly determines which
-      // concrete challenge model to create (e.g., SingleChoiceChallengeModel).
       challengeModel = ChallengeModel.fromJson(
         json['challenge'] as Map<String, dynamic>,
       );
@@ -32,7 +29,9 @@ class StorySegmentModel extends StorySegment {
       type: SegmentType.values.firstWhere((e) => e.name == json['type']),
       textContent: json['text_content'] as String,
       imageUrl: json['image_url'] as String?,
-      // CORRECT: Pass the 'challengeModel' variable that holds the parsed object.
+      // --- NEW FIELD PARSING ---
+      // The backend sends 'audio_endpoint' in snake_case
+      audioEndpoint: json['audio_endpoint'] as String?,
       challenge: challengeModel,
     );
   }
@@ -41,12 +40,14 @@ class StorySegmentModel extends StorySegment {
     return {
       'id': id,
       'type': type.name,
-      'text_content': textContent, // --- REMOVED audio_url ---
+      'text_content': textContent,
       'image_url': imageUrl,
+      'audio_endpoint': audioEndpoint, // Add to JSON for serialization
       'challenge': (challenge as ChallengeModel?)?.toJson(),
     };
   }
 
+  // --- UPDATE HIVE FIELDS ---
   @override
   @HiveField(0)
   String get id => super.id;
@@ -56,14 +57,21 @@ class StorySegmentModel extends StorySegment {
   SegmentType get type => super.type;
 
   @override
-  @HiveField(2) // --- UPDATED HIVEFIELD INDEX ---
+  @HiveField(2)
   String get textContent => super.textContent;
 
   @override
-  @HiveField(3) // --- UPDATED HIVEFIELD INDEX ---
+  @HiveField(3)
   String? get imageUrl => super.imageUrl;
 
+  // --- NEW HIVE FIELD ---
+  // We need a new, unique index for our new property.
   @override
-  @HiveField(4) // --- UPDATED HIVEFIELD INDEX ---
+  @HiveField(4)
+  String? get audioEndpoint => super.audioEndpoint;
+
+  // The challenge field's index needs to be shifted to accommodate the new field.
+  @override
+  @HiveField(5) // <-- Index was 4, now it is 5
   Challenge? get challenge => super.challenge;
 }

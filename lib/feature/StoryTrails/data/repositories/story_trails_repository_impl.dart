@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dartz/dartz.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/level_completion_status.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
@@ -215,70 +217,61 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   Future<Either<Failures, LevelCompletionStatus>> markStoryTrailCompleted(
     String trailId,
   ) async {
-    try {
-      final progressEither = await getUserStoryProgress(trailId);
-      final profileEither = await getUserLearningProfile();
+    // This operation now requires an internet connection.
+    if (await networkInfo.isConnected) {
+      try {
+        // Delegate the entire operation to the remote data source.
+        // The backend now handles all the logic.
+        final levelStatus = await remoteDataSource.markStoryTrailCompleted(
+          trailId,
+        );
 
-      return await progressEither.fold(
-        (failure) => Left(failure),
-        (
-          progress,
-        ) async => await profileEither.fold((failure) => Left(failure), (
-          profile,
-        ) async {
-          final updatedProgress = (progress as StoryProgressModel).copyWith(
-            isCompleted: true,
-            completionDate: DateTime.now(),
-          );
-          await localDataSource.cacheUserStoryProgress(updatedProgress);
-
-          final currentLevel = profile.currentLearningLevel;
-          final completedTrails = List<String>.from(profile.completedTrailIds);
-          if (!completedTrails.contains(trailId)) {
-            completedTrails.add(trailId);
-          }
-
-          // This is simplified logic. A real app would need a more robust way
-          // to check if all stories for a level are complete.
-          if (await networkInfo.isConnected) {
-            // Assuming for now that completing any story levels you up.
-            bool didLevelUp = true;
-
-            final updatedProfile = (profile as UserLearningProfileModel)
-                .copyWith(
-                  xpGlobal: profile.xpGlobal + updatedProgress.xpEarned,
-                  completedTrailIds: completedTrails,
-                  currentLearningLevel: didLevelUp
-                      ? currentLevel + 1
-                      : currentLevel,
-                );
-            await localDataSource.cacheUserLearningProfile(updatedProfile);
-
-            // This is now valid because of the import.
-            return Right(
-              LevelCompletionStatus(
-                didLevelUp: didLevelUp,
-                newLevel: updatedProfile.currentLearningLevel,
-              ),
+        // Optional: Update local progress and profile based on the successful remote call.
+        // This is good for keeping the local cache in sync.
+        final progressEither = await getUserStoryProgress(trailId);
+        progressEither.fold(
+          (_) => null, // Silently fail if progress can't be fetched
+          (progress) {
+            final updatedProgress = (progress as StoryProgressModel).copyWith(
+              isCompleted: true,
+              completionDate: DateTime.now(),
             );
-          } else {
-            // Cannot verify level completion offline. Assume no level up.
-            final updatedProfile = (profile as UserLearningProfileModel)
-                .copyWith(
-                  xpGlobal: profile.xpGlobal + updatedProgress.xpEarned,
-                  completedTrailIds: completedTrails,
-                );
-            await localDataSource.cacheUserLearningProfile(updatedProfile);
+            localDataSource.cacheUserStoryProgress(updatedProgress);
+          },
+        );
 
-            // This is now valid because of the import.
-            return Right(
-              LevelCompletionStatus(didLevelUp: false, newLevel: currentLevel),
-            );
-          }
-        }),
+        // Return the status received directly from the server.
+        return Right(levelStatus);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(message: e.message));
+      }
+    } else {
+      // If offline, we cannot complete the story. Return a failure.
+      return Left(
+        ServerFailure(message: 'You must be online to complete a story.'),
       );
-    } catch (e) {
-      return Left(UnknownFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failures, Uint8List>> getAudioForSegment(
+    String audioEndpoint,
+  ) async {
+    // Audio fetching is an online-only operation.
+    if (await networkInfo.isConnected) {
+      try {
+        final audioData = await remoteDataSource.getAudioForSegment(
+          audioEndpoint,
+        );
+        return Right(audioData);
+      } on ServerException catch (e) {
+        return Left(ServerFailure(message: e.message));
+      }
+    } else {
+      // If offline, we cannot fetch the audio. Return a failure.
+      return Left(
+        ServerFailure(message: 'Audio requires an internet connection.'),
+      );
     }
   }
 

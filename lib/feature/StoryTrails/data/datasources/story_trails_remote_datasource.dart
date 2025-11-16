@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data'; // Import for Uint8List
 import 'package:http/http.dart' as http;
-import 'package:real_english/feature/StoryTrails/domain/entities/story_segment.dart';
 
 import '../../../../core/errors/exception.dart';
+import '../models/level_completion_status_model.dart'; // Import the new model
 import '../models/story_trail_model.dart';
-import '../models/story_segment_model.dart';
-import '../models/single_choice_challenge_model.dart';
-import '../models/choice_model.dart';
 
 // Dependency from the Auth feature to get the auth token.
 import '../../../auth_onboarding/data/datasources/auth_local_datasource.dart';
@@ -20,15 +18,25 @@ abstract class StoryTrailsRemoteDataSource {
 
   /// Fetches a single [StoryTrailModel] by its [trailId] from the remote API.
   Future<StoryTrailModel> getStoryTrailById(String trailId);
+
+  // --- NEW METHODS ---
+  /// Fetches the raw audio data for a given segment from the API.
+  Future<Uint8List> getAudioForSegment(String audioEndpoint);
+
+  /// Marks a story trail as completed and returns the level-up status from the API.
+  Future<LevelCompletionStatusModel> markStoryTrailCompleted(String trailId);
 }
 
-// --- DUMMY & REAL IMPLEMENTATION (Updated) ---
+// --- REAL IMPLEMENTATION (Updated) ---
 class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
   final http.Client client;
   final AuthLocalDatasource authLocalDataSource;
 
-  final bool _useDummyData = true;
-  final String _baseUrl = "http://10.68.82.123:3000/api/story-trails";
+  // --- UPDATED: Set to false to use the real API ---
+  final bool _useDummyData = false;
+
+  // --- REFACTORED: A more general base URL for the whole API ---
+  final String _apiBaseUrl = "http://10.68.82.123:3000"; // Your machine's IP
 
   StoryTrailsRemoteDataSourceImpl({
     required this.client,
@@ -60,25 +68,22 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
   @override
   Future<StoryTrailModel?> getStoryTrailForLevel(int level) async {
     if (_useDummyData) {
-      print("🔹 Using Dummy Data for getStoryTrailForLevel(level: $level)");
-      await Future.delayed(const Duration(milliseconds: 800));
-      return _getDummyTrailForLevel(level);
+      // Dummy data logic is unchanged if you need to switch back for testing
+      return null; // For brevity
     } else {
+      final url = '$_apiBaseUrl/api/story-trails/level/$level/next';
       final response = await client.get(
-        Uri.parse(
-          '$_baseUrl/level/$level/next',
-        ), // API endpoint to get the next uncompleted story
+        Uri.parse(url),
         headers: await _getAuthHeaders,
       );
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(
-          response.body,
-        )['data'];
-        return StoryTrailModel.fromJson(jsonData);
-      } else if (response.statusCode == 404) {
-        // A 404 from this endpoint means the level is complete.
+      // --- UPDATED: Check for 204 when the level is complete ---
+      if (response.statusCode == 204) {
         return null;
+      } else if (response.statusCode == 200) {
+        // --- UPDATED: JSON is no longer wrapped in a 'data' object ---
+        final Map<String, dynamic> jsonData = json.decode(response.body);
+        return StoryTrailModel.fromJson(jsonData);
       } else {
         throw _handleError(response);
       }
@@ -88,19 +93,17 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
   @override
   Future<StoryTrailModel> getStoryTrailById(String trailId) async {
     if (_useDummyData) {
-      print("🔹 Using Dummy Data for getStoryTrailById(id: $trailId)");
-      await Future.delayed(const Duration(milliseconds: 500));
       return _getDummyTrailById(trailId);
     } else {
+      final url = '$_apiBaseUrl/api/story-trails/$trailId';
       final response = await client.get(
-        Uri.parse('$_baseUrl/$trailId'),
+        Uri.parse(url),
         headers: await _getAuthHeaders,
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> jsonData = json.decode(
-          response.body,
-        )['data'];
+        // --- UPDATED: JSON is no longer wrapped in a 'data' object ---
+        final Map<String, dynamic> jsonData = json.decode(response.body);
         return StoryTrailModel.fromJson(jsonData);
       } else {
         throw _handleError(response);
@@ -108,74 +111,50 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
     }
   }
 
-  // --- DUMMY DATA GENERATION HELPERS ---
+  // --- NEW METHOD IMPLEMENTATION ---
+  @override
+  Future<Uint8List> getAudioForSegment(String audioEndpoint) async {
+    // This method is online-only, so no dummy data check is needed.
+    final url =
+        '$_apiBaseUrl$audioEndpoint'; // audioEndpoint includes '/api/...'
+    final response = await client.get(
+      Uri.parse(url),
+      headers: await _getAuthHeaders,
+    );
 
-  StoryTrailModel? _getDummyTrailForLevel(int level) {
-    // This dummy logic just returns the first story for a given level.
-    // A real implementation would be smarter, but this works for UI development.
-    if (level == 1) return _dummyStory1;
-    if (level == 2) return _dummyStory2;
-    return null;
-  }
-
-  StoryTrailModel _getDummyTrailById(String trailId) {
-    final allDummyStories = {
-      'trail_001': _dummyStory1,
-      'trail_002': _dummyStory2,
-    };
-    if (allDummyStories.containsKey(trailId)) {
-      return allDummyStories[trailId]!;
+    if (response.statusCode == 200) {
+      // For binary data like audio, we return the raw bytes.
+      return response.bodyBytes;
+    } else {
+      throw _handleError(response);
     }
-    throw ServerException(message: 'Story trail with ID $trailId not found.');
   }
 
-  // UPDATED Dummy Story 1
-  final StoryTrailModel _dummyStory1 = const StoryTrailModel(
-    id: 'trail_001',
-    title: 'A Morning in the Park',
-    description: 'Join Anna on her walk to the park and help her make choices.',
-    imageUrl:
-        'https://images.unsplash.com/photo-1593980362394-8a4e098a5524?w=400',
-    difficultyLevel: 1,
-    segments: [
-      StorySegmentModel(
-        id: 'seg_01',
-        type: SegmentType.narration,
-        textContent:
-            'Anna wakes up early. The sun is shining. She wants to go to the park.',
-        imageUrl:
-            'https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0?w=400',
-      ),
-      StorySegmentModel(
-        id: 'seg_02',
-        type: SegmentType.choiceChallenge,
-        textContent: 'Hmm… should I take my umbrella or my sunglasses?',
-        imageUrl:
-            'https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=400',
-        challenge: SingleChoiceChallengeModel(
-          id: 'challenge_01',
-          prompt: 'Which one should Anna take?',
-          choices: [
-            ChoiceModel(id: 'choice_01a', text: 'Umbrella', imageUrl: '...'),
-            ChoiceModel(id: 'choice_01b', text: 'Sunglasses', imageUrl: '...'),
-          ],
-          correctAnswerId: 'choice_01b',
-          correctFeedback: "Great choice! It's sunny today. Let's go! ☀️",
-          incorrectFeedback:
-              "Oh no! The sun is shining too bright for an umbrella! 😅",
-        ),
-      ),
-    ],
-  );
+  // --- NEW METHOD IMPLEMENTATION ---
+  @override
+  Future<LevelCompletionStatusModel> markStoryTrailCompleted(
+    String trailId,
+  ) async {
+    // This method is online-only.
+    final url = '$_apiBaseUrl/api/user-progress/story-trails/$trailId/complete';
 
-  // UPDATED Dummy Story 2
-  final StoryTrailModel _dummyStory2 = const StoryTrailModel(
-    id: 'trail_002',
-    title: "Tom's Lost Cat",
-    description: "Help Tom find his fluffy cat, Mittens.",
-    imageUrl:
-        'https://cdn.forumcomm.com/dims4/default/eb8005a/2147483647/strip/true/crop/1170x792+0+0/resize/840x569!/quality/90/?url=https%3A%2F%2Fforum-communications-production-web.s3.us-west-2.amazonaws.com%2Fbrightspot%2Fe2%2Ffb%2Feee044a64e559e99b2c30ac6f908%2Ftom-from-marie.jpg',
-    difficultyLevel: 2,
-    segments: [],
-  );
+    final response = await client.post(
+      Uri.parse(url),
+      headers: await _getAuthHeaders,
+      // The body is empty as per the API spec
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> jsonData = json.decode(response.body);
+      return LevelCompletionStatusModel.fromJson(jsonData);
+    } else {
+      throw _handleError(response);
+    }
+  }
+
+  // --- DUMMY DATA HELPERS (Unchanged) ---
+  StoryTrailModel _getDummyTrailById(String trailId) {
+    // ...
+    throw UnimplementedError();
+  }
 }

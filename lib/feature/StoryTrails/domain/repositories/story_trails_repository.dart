@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:flutter/foundation.dart';
 import 'package:real_english/core/errors/failures.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/level_completion_status.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_progress.dart';
@@ -29,7 +30,9 @@ abstract class StoryTrailsRepository {
 
   /// Marks a specific Story Trail as completed by the user.
   /// This will also update the user's overall learning profile (e.g., add to completed trails, update XP).
-   Future<Either<Failures, LevelCompletionStatus>> markStoryTrailCompleted(String trailId);
+  Future<Either<Failures, LevelCompletionStatus>> markStoryTrailCompleted(
+    String trailId,
+  );
 
   // --- New methods for User Learning Profile and Leveling ---
 
@@ -41,6 +44,10 @@ abstract class StoryTrailsRepository {
   Future<Either<Failures, void>> updateUserLearningProfile(
     UserLearningProfile profile,
   );
+
+  /// Fetches the raw audio data for a given segment from the API.
+  /// This is an online-only operation.
+  Future<Either<Failures, Uint8List>> getAudioForSegment(String audioEndpoint);
 
   // You might also consider a method to get a "next recommended trail" which uses the level internally.
   // Future<Either<Failures, StoryTrail>> getNextRecommendedStoryTrail(int currentLevel);

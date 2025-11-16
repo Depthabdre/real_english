@@ -1,6 +1,4 @@
-// presentation/bloc/story_player_event.dart
-
-part of 'story_player_bloc.dart'; // Connects to the main BLoC file
+part of 'story_player_bloc.dart';
 
 abstract class StoryPlayerEvent extends Equatable {
   const StoryPlayerEvent();
@@ -9,25 +7,29 @@ abstract class StoryPlayerEvent extends Equatable {
   List<Object> get props => [];
 }
 
-/// Dispatched when the player page is first loaded to start a specific story.
 class StartStory extends StoryPlayerEvent {
   final String trailId;
-
   const StartStory({required this.trailId});
-
   @override
   List<Object> get props => [trailId];
 }
 
-/// Dispatched when the user submits an answer to a challenge.
 class SubmitAnswer extends StoryPlayerEvent {
-  final String chosenAnswerId; // The ID of the choice the user selected
-
+  final String chosenAnswerId;
   const SubmitAnswer({required this.chosenAnswerId});
-
   @override
   List<Object> get props => [chosenAnswerId];
 }
 
-/// Dispatched by the UI when a narration segment (e.g., audio) has finished playing.
+/// Dispatched automatically by the BLoC's audio player listener when a narration finishes.
 class NarrationFinished extends StoryPlayerEvent {}
+
+// --- NEW INTERNAL EVENT ---
+/// This event is added by the BLoC to itself when a background
+/// audio preload has finished downloading.
+class _AudioPreloaded extends StoryPlayerEvent {
+  final String segmentId;
+  final Uint8List audioData;
+
+  const _AudioPreloaded({required this.segmentId, required this.audioData});
+}

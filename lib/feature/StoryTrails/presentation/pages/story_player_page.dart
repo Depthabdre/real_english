@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../../app/injection_container.dart';
 import '../../domain/entities/single_choice_challenge.dart';
@@ -16,13 +16,13 @@ class StoryPlayerPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<StoryPlayerBloc>(
-      create: (context) => sl<StoryPlayerBloc>()..add(StartStory(trailId: trailId)),
+      create: (context) =>
+          sl<StoryPlayerBloc>()..add(StartStory(trailId: trailId)),
       child: const StoryPlayerView(),
     );
   }
 }
 
-// Converted to a StatefulWidget to manage TTS and AudioPlayer controllers
 class StoryPlayerView extends StatefulWidget {
   const StoryPlayerView({super.key});
 
@@ -37,29 +37,30 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
   @override
   void initState() {
     super.initState();
-    _flutterTts = FlutterTts();
     _soundPlayer = AudioPlayer();
+    _flutterTts = FlutterTts();
     _setupTts();
   }
 
   Future<void> _setupTts() async {
-    await _flutterTts.setSpeechRate(0.45);
+    await _flutterTts.setSpeechRate(0.5);
     await _flutterTts.setPitch(1.0);
   }
 
   @override
   void dispose() {
-    _flutterTts.stop();
     _soundPlayer.dispose();
+    _flutterTts.stop();
     super.dispose();
   }
 
-  void _speak(String text) {
+  void _speakChallengePrompt(String text) {
     _flutterTts.speak(text);
   }
 
   void _playFeedbackSound(bool isCorrect) async {
-    final assetPath = 'assets/sounds/${isCorrect ? 'correct.mp3' : 'incorrect.mp3'}';
+    final assetPath =
+        'assets/sounds/${isCorrect ? 'correct.mp3' : 'incorrect.mp3'}';
     try {
       await _soundPlayer.setAsset(assetPath);
       _soundPlayer.play();
@@ -72,8 +73,16 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
     _playFeedbackSound(isCorrect);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: isCorrect ? Colors.green.shade600 : Colors.red.shade600,
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: isCorrect
+            ? Colors.green.shade600
+            : Colors.red.shade600,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -93,15 +102,12 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
             return const Text('');
           },
         ),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
       ),
       body: BlocListener<StoryPlayerBloc, StoryPlayerState>(
         listener: (context, state) {
-          if (state is StoryPlayerDisplay) {
-            final textToSpeak = state.currentSegment.type == SegmentType.narration
-                ? state.currentSegment.textContent
-                : (state.currentSegment.challenge as SingleChoiceChallenge).prompt;
-            _speak(textToSpeak);
-          } else if (state is AnswerFeedback) {
+          if (state is AnswerFeedback) {
             _showFeedback(context, state.isCorrect, state.feedbackMessage);
           }
         },
@@ -110,9 +116,12 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
             if (state is StoryPlayerInitial || state is StoryPlayerLoading) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (state is StoryPlayerError) return _buildErrorState(context, state);
-            if (state is LevelCompleted) return _buildLevelCompletedState(context, state);
-            if (state is StoryPlayerFinished) return _buildFinishedState(context, state);
+            if (state is StoryPlayerError)
+              return _buildErrorState(context, state);
+            if (state is LevelCompleted)
+              return _buildLevelCompletedState(context, state);
+            if (state is StoryPlayerFinished)
+              return _buildFinishedState(context, state);
 
             StorySegment? segment;
             if (state is StoryPlayerDisplay) {
@@ -124,24 +133,33 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
             if (segment != null) {
               return _buildContent(context, segment);
             }
-            
+
             return const Center(child: Text('An unknown state occurred.'));
           },
         ),
       ),
     );
   }
-  
+
   Widget _buildContent(BuildContext context, StorySegment segment) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
-      transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
       child: Container(
         key: ValueKey<String>(segment.id),
+        // --- THE FIX IS HERE ---
+        // We add a wildcard case `_` to handle any enum values not explicitly
+        // matched, such as `SegmentType.audioChallenge`.
         child: switch (segment.type) {
           SegmentType.narration => _buildNarrationSegment(context, segment),
-          SegmentType.choiceChallenge => _buildChoiceChallengeSegment(context, segment),
-          _ => Center(child: Text('Unsupported segment type: ${segment.type.name}')),
+          SegmentType.choiceChallenge => _buildChoiceChallengeSegment(
+            context,
+            segment,
+          ),
+          _ => Center(
+            child: Text('Unsupported segment type: ${segment.type.name}'),
+          ),
         },
       ),
     );
@@ -156,38 +174,40 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildSegmentImage(segment.imageUrl),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(height: 48),
+          Column(
             children: [
-              Expanded(
-                child: Text(
-                  segment.textContent,
-                  style: theme.textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
+              Icon(
+                Icons.graphic_eq_rounded,
+                color: theme.colorScheme.primary,
+                size: 48,
               ),
-              IconButton(
-                icon: const Icon(Icons.volume_up_rounded),
-                onPressed: () => _speak(segment.textContent),
-                tooltip: 'Listen again',
+              const SizedBox(height: 16),
+              Text(
+                'Listening...',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: theme.textTheme.bodyMedium?.color?.withAlpha(
+                    (255 * 0.7).round(),
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 48),
-          ElevatedButton(
-            onPressed: () => context.read<StoryPlayerBloc>().add(NarrationFinished()),
-            child: const Text('Continue'),
-          ),
+          const Spacer(),
         ],
       ),
     );
   }
-  
-  Widget _buildChoiceChallengeSegment(BuildContext context, StorySegment segment) {
+
+  Widget _buildChoiceChallengeSegment(
+    BuildContext context,
+    StorySegment segment,
+  ) {
     final theme = Theme.of(context);
     final challenge = segment.challenge as SingleChoiceChallenge;
-    bool isResponding = context.watch<StoryPlayerBloc>().state is AnswerFeedback;
+    bool isResponding =
+        context.watch<StoryPlayerBloc>().state is AnswerFeedback;
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -209,8 +229,8 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
               ),
               IconButton(
                 icon: const Icon(Icons.volume_up_rounded),
-                onPressed: () => _speak(challenge.prompt),
-                tooltip: 'Listen again',
+                onPressed: () => _speakChallengePrompt(challenge.prompt),
+                tooltip: 'Listen to prompt',
               ),
             ],
           ),
@@ -219,10 +239,16 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                style: theme.elevatedButtonTheme.style?.copyWith(
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
                 onPressed: isResponding
                     ? null
-                    : () => context.read<StoryPlayerBloc>().add(SubmitAnswer(chosenAnswerId: choice.id)),
+                    : () => context.read<StoryPlayerBloc>().add(
+                        SubmitAnswer(chosenAnswerId: choice.id),
+                      ),
                 child: Text(choice.text),
               ),
             );
@@ -234,14 +260,12 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
 
   Widget _buildSegmentImage(String? imageUrl) {
     if (imageUrl == null || imageUrl.isEmpty) {
-      return const SizedBox(height: 200); // Reserve space even if no image
+      return const SizedBox(height: 200);
     }
     return Container(
       height: 200,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
       child: Image.network(
         imageUrl,
         fit: BoxFit.cover,
@@ -250,12 +274,16 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
           return const Center(child: CircularProgressIndicator());
         },
         errorBuilder: (context, error, stackTrace) {
-          return const Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey);
+          return const Icon(
+            Icons.broken_image_outlined,
+            size: 48,
+            color: Colors.grey,
+          );
         },
       ),
     );
   }
-  
+
   Widget _buildLevelCompletedState(BuildContext context, LevelCompleted state) {
     final theme = Theme.of(context);
     return Center(
@@ -264,11 +292,17 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 100),
+            const Icon(
+              Icons.workspace_premium_rounded,
+              color: Colors.amber,
+              size: 100,
+            ),
             const SizedBox(height: 24),
             Text(
               'Level Complete!',
-              style: theme.textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.headlineLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -278,10 +312,15 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
             ),
             const SizedBox(height: 48),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+              ),
               onPressed: () => context.go('/story-trails'),
               child: const Text('Explore Next Level'),
-            )
+            ),
           ],
         ),
       ),
@@ -309,7 +348,7 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
             ElevatedButton(
               onPressed: () => context.go('/story-trails'),
               child: const Text('Back to Adventures'),
-            )
+            ),
           ],
         ),
       ),
@@ -326,12 +365,22 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
           children: [
             const Icon(Icons.error_outline, color: Colors.redAccent, size: 64),
             const SizedBox(height: 16),
-            Text('Oh no!', style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
+            Text(
+              'Oh no!',
+              style: theme.textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 8),
-            Text(state.message, style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
+            Text(
+              state.message,
+              style: theme.textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => context.read<StoryPlayerBloc>().add(StartStory(trailId: state.trailId)),
+              onPressed: () => context.read<StoryPlayerBloc>().add(
+                StartStory(trailId: state.trailId),
+              ),
               child: const Text('Try Again'),
             ),
           ],

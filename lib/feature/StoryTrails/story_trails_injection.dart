@@ -10,7 +10,9 @@ import 'presentation/bloc/story_trails_list_bloc.dart';
 
 // --- Domain ---
 import 'domain/repositories/story_trails_repository.dart';
-import 'domain/usecases/get_story_trail_for_level.dart'; // Correct singular name
+// --- NEW: Import the new use case ---
+import 'domain/usecases/get_audio_for_segment.dart';
+import 'domain/usecases/get_story_trail_for_level.dart';
 import 'domain/usecases/get_story_trail_by_id.dart';
 import 'domain/usecases/get_user_learning_profile.dart';
 import 'domain/usecases/get_user_story_progress.dart';
@@ -32,12 +34,16 @@ Future<void> initStoryTrailsFeature() async {
   sl.registerFactory(
     () => StoryTrailsListBloc(
       getUserLearningProfileUseCase: sl(),
-      getStoryTrailForLevelUseCase: sl(), // Correct singular name
+      getStoryTrailForLevelUseCase: sl(),
     ),
   );
 
+  // --- UPDATED: Add the new use case to the BLoC's constructor ---
   sl.registerFactory(
     () => StoryPlayerBloc(
+      // This is the new dependency
+      getAudioForSegmentUseCase: sl(),
+
       getStoryTrailByIdUseCase: sl(),
       getUserStoryProgressUseCase: sl(),
       submitChallengeAnswerUseCase: sl(),
@@ -47,9 +53,10 @@ Future<void> initStoryTrailsFeature() async {
   );
 
   // --- Domain Layer (Use Cases) ---
-  sl.registerLazySingleton(
-    () => GetStoryTrailForLevel(sl()),
-  ); // Correct singular name
+  // --- NEW: Register the new use case as a lazy singleton ---
+  sl.registerLazySingleton(() => GetAudioForSegment(sl()));
+
+  sl.registerLazySingleton(() => GetStoryTrailForLevel(sl()));
   sl.registerLazySingleton(() => GetStoryTrailById(sl()));
   sl.registerLazySingleton(() => GetUserLearningProfile(sl()));
   sl.registerLazySingleton(() => GetUserStoryProgress(sl()));
@@ -79,7 +86,6 @@ Future<void> initStoryTrailsFeature() async {
   );
 
   // --- Core / External Dependencies ---
-  // These checks prevent errors if these are already registered elsewhere.
   if (!sl.isRegistered<http.Client>()) {
     sl.registerLazySingleton(() => http.Client());
   }

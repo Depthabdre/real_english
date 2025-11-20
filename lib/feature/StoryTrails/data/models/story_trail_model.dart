@@ -22,14 +22,36 @@ class StoryTrailModel extends StoryTrail {
 
   factory StoryTrailModel.fromJson(Map<String, dynamic> json) {
     return StoryTrailModel(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String,
-      imageUrl: json['image_url'] as String,
-      difficultyLevel: json['difficulty_level'] as int,
-      segments: (json['segments'] as List<dynamic>)
-          .map((e) => StorySegmentModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      // 1. Safely handle ID (Default to empty string if missing)
+      id: json['id'] as String? ?? '',
+
+      // 2. Safely handle Title
+      title: json['title'] as String? ?? 'Untitled Story',
+
+      // 3. Safely handle Description (This often comes back null from AI)
+      description: json['description'] as String? ?? '',
+
+      // 4. CRITICAL FIX: Handle Image URL
+      // The AI might return null, OR it might use 'imageUrl' instead of 'image_url'.
+      // We check both, and fall back to a placeholder if both are null.
+      imageUrl:
+          (json['image_url'] ?? json['imageUrl']) as String? ??
+          'https://via.placeholder.com/300?text=No+Image',
+
+      // 5. Safely handle Difficulty (Default to 1)
+      difficultyLevel:
+          (json['difficulty_level'] ?? json['difficultyLevel']) as int? ?? 1,
+
+      // 6. Safely handle Segments (If list is null, return empty list)
+      segments:
+          (json['segments'] as List<dynamic>?)
+              ?.map(
+                (e) => StorySegmentModel.fromJson(e as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+
+      // 7. User Progress (Already handled safely in your code, kept as is)
       userProgress: json['user_progress'] != null
           ? StoryProgressModel.fromJson(
               json['user_progress'] as Map<String, dynamic>,

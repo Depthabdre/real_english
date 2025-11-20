@@ -38,6 +38,7 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     required this.markStoryTrailCompletedUseCase,
   }) : _audioPlayer = AudioPlayer(),
        super(StoryPlayerInitial()) {
+    // Listen for audio completion to auto-advance
     _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
         add(NarrationFinished());
@@ -200,6 +201,7 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     }
   }
 
+  // --- UPDATED METHOD: SAFE URL CONSTRUCTION & ERROR HANDLING ---
   Future<void> _playSegmentAndPreloadNext(
     Emitter<StoryPlayerState> emit,
     StoryTrail trail,
@@ -212,38 +214,57 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     if (currentSegment.type == SegmentType.narration) {
       Uint8List? audioData = currentState.audioCache[currentSegment.id];
 
+      // 1. Fetch if not in cache
       if (audioData == null) {
+        // FIX: Construct URL if null
+        final endpoint =
+            currentSegment.audioEndpoint ??
+            '/api/story-trails/segments/${currentSegment.id}/audio';
+
         final result = await getAudioForSegmentUseCase(
-          GetAudioForSegmentParams(
-            audioEndpoint: currentSegment.audioEndpoint!,
-          ),
+          GetAudioForSegmentParams(audioEndpoint: endpoint),
         );
-        result.fold(
-          (failure) => emit(StoryPlayerError(failure.message, trail.id)),
-          (data) {
+
+        await result.fold(
+          (failure) async {
+            // Don't crash the UI for audio failure, just log it.
+            print("Audio fetch failed: ${failure.message}");
+            // Optionally emit a specific state if you want to show a toast
+          },
+          (data) async {
             audioData = data;
             add(_AudioPreloaded(segmentId: currentSegment.id, audioData: data));
           },
         );
       }
 
+      // 2. Play if data exists
       if (audioData != null) {
         try {
           await _audioPlayer.setAudioSource(BytesAudioSource(audioData!));
           _audioPlayer.play();
         } catch (e) {
-          emit(StoryPlayerError(e.toString(), trail.id));
+          print("Audio playback error: $e");
+          // emit(StoryPlayerError(e.toString(), trail.id)); // Optional: Don't crash UI
         }
       }
     }
 
+    // --- PRELOADING NEXT SEGMENT ---
     final preloadIndex = progress.currentSegmentIndex + 1;
     if (preloadIndex < trail.segments.length) {
       final nextSegment = trail.segments[preloadIndex];
+
+      // Only preload narration segments
       if (nextSegment.type == SegmentType.narration &&
           currentState.audioCache[nextSegment.id] == null) {
+        // FIX: Construct URL if null for next segment too
+        final nextEndpoint =
+            nextSegment.audioEndpoint ??
+            '/api/story-trails/segments/${nextSegment.id}/audio';
+
         getAudioForSegmentUseCase(
-          GetAudioForSegmentParams(audioEndpoint: nextSegment.audioEndpoint!),
+          GetAudioForSegmentParams(audioEndpoint: nextEndpoint),
         ).then((result) {
           result.fold(
             (failure) => print("Audio preload failed: ${failure.message}"),

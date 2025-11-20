@@ -71,6 +71,7 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
       // Dummy data logic is unchanged if you need to switch back for testing
       return null; // For brevity
     } else {
+      print("appis calling jkjaskjfjkj");
       final url = '$_apiBaseUrl/api/story-trails/level/$level/next';
       final response = await client.get(
         Uri.parse(url),
@@ -81,6 +82,7 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
       if (response.statusCode == 204) {
         return null;
       } else if (response.statusCode == 200) {
+        print("DEBUG JSON RESPONSE: ${response.body}");
         // --- UPDATED: JSON is no longer wrapped in a 'data' object ---
         final Map<String, dynamic> jsonData = json.decode(response.body);
         return StoryTrailModel.fromJson(jsonData);

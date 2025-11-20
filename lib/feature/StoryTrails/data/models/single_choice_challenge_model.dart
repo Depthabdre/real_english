@@ -1,5 +1,4 @@
 import 'package:real_english/feature/StoryTrails/domain/entities/abstract_challenge.dart';
-
 import '../../domain/entities/single_choice_challenge.dart';
 import 'challenge_model.dart';
 import 'choice_model.dart';
@@ -26,9 +25,22 @@ class SingleChoiceChallengeModel extends SingleChoiceChallenge
       choices: (json['choices'] as List<dynamic>)
           .map((e) => ChoiceModel.fromJson(e as Map<String, dynamic>))
           .toList(),
-      correctAnswerId: json['correct_answer_id'] as String,
-      correctFeedback: json['correct_feedback'] as String?,
-      incorrectFeedback: json['incorrect_feedback'] as String?,
+
+      // FIX: Handle key mismatch (Backend might send 'correctChoiceId' or 'correctId')
+      correctAnswerId:
+          (json['correct_answer_id'] ??
+                  json['correctAnswerId'] ??
+                  json['correctChoiceId'] ??
+                  json['correctId'])
+              as String,
+
+      // FIX: Handle key mismatch (Backend might send 'correctFeedback')
+      correctFeedback:
+          (json['correct_feedback'] ?? json['correctFeedback']) as String?,
+
+      // FIX: Handle key mismatch (Backend might send 'incorrectFeedback')
+      incorrectFeedback:
+          (json['incorrect_feedback'] ?? json['incorrectFeedback']) as String?,
     );
   }
 
@@ -45,8 +57,7 @@ class SingleChoiceChallengeModel extends SingleChoiceChallenge
     };
   }
 
-  // --- FIX: ADD ALL REQUIRED HIVEFIELD OVERRIDES ---
-
+  // --- HIVE FIELDS (Keep these as they were) ---
   @override
   @HiveField(0)
   String get id => super.id;

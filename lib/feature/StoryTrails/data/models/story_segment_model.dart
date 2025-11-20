@@ -26,12 +26,23 @@ class StorySegmentModel extends StorySegment {
 
     return StorySegmentModel(
       id: json['id'] as String,
-      type: SegmentType.values.firstWhere((e) => e.name == json['type']),
-      textContent: json['text_content'] as String,
-      imageUrl: json['image_url'] as String?,
-      // --- NEW FIELD PARSING ---
-      // The backend sends 'audio_endpoint' in snake_case
-      audioEndpoint: json['audio_endpoint'] as String?,
+
+      // FIX 1: Safety check for Enum (AI might return "ChoiceChallenge" instead of "choiceChallenge")
+      type: SegmentType.values.firstWhere(
+        (e) => e.name.toLowerCase() == (json['type'] as String).toLowerCase(),
+        orElse: () => SegmentType.narration, // Fallback to prevent crash
+      ),
+
+      // FIX 2: Handle camelCase (from Backend Entity) AND snake_case (raw)
+      textContent: (json['text_content'] ?? json['textContent']) as String,
+
+      // FIX 3: Handle camelCase AND snake_case
+      imageUrl: (json['image_url'] ?? json['imageUrl']) as String?,
+
+      // FIX 4: Handle camelCase AND snake_case
+      audioEndpoint:
+          (json['audio_endpoint'] ?? json['audioEndpoint']) as String?,
+
       challenge: challengeModel,
     );
   }

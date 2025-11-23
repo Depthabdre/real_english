@@ -47,7 +47,7 @@ abstract class StoryTrailsRepository {
 
   /// Fetches the raw audio data for a given segment from the API.
   /// This is an online-only operation.
-  Future<Either<Failures, Uint8List>> getAudioForSegment(String audioEndpoint);
+  Future<Either<Failures, String>> getAudioForSegment(String audioEndpoint);
 
   // You might also consider a method to get a "next recommended trail" which uses the level internally.
   // Future<Either<Failures, StoryTrail>> getNextRecommendedStoryTrail(int currentLevel);

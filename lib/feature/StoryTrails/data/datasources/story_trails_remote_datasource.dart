@@ -21,7 +21,7 @@ abstract class StoryTrailsRemoteDataSource {
 
   // --- NEW METHODS ---
   /// Fetches the raw audio data for a given segment from the API.
-  Future<Uint8List> getAudioForSegment(String audioEndpoint);
+  Future<String> getAudioForSegment(String audioEndpoint);
 
   /// Marks a story trail as completed and returns the level-up status from the API.
   Future<LevelCompletionStatusModel> markStoryTrailCompleted(String trailId);
@@ -36,7 +36,7 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
   final bool _useDummyData = false;
 
   // --- REFACTORED: A more general base URL for the whole API ---
-  final String _apiBaseUrl = "http://10.231.31.123:3000"; // Your machine's IP
+  final String _apiBaseUrl = "http://10.73.218.123:3000"; // Your machine's IP
 
   StoryTrailsRemoteDataSourceImpl({
     required this.client,
@@ -115,18 +115,20 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
 
   // --- NEW METHOD IMPLEMENTATION ---
   @override
-  Future<Uint8List> getAudioForSegment(String audioEndpoint) async {
-    // This method is online-only, so no dummy data check is needed.
-    final url =
-        '$_apiBaseUrl$audioEndpoint'; // audioEndpoint includes '/api/...'
+  Future<String> getAudioForSegment(String audioEndpoint) async {
+    // Note: audioEndpoint might be a partial path like "/api/..." or a full URL depending on logic.
+    // We construct the full URL to hit your backend API.
+    final url = '$_apiBaseUrl$audioEndpoint';
+
     final response = await client.get(
       Uri.parse(url),
       headers: await _getAuthHeaders,
     );
 
     if (response.statusCode == 200) {
-      // For binary data like audio, we return the raw bytes.
-      return response.bodyBytes;
+      // NEW LOGIC: Parse JSON to get the "audioUrl" field
+      final data = json.decode(response.body);
+      return data['audioUrl'] as String;
     } else {
       throw _handleError(response);
     }

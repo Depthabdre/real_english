@@ -254,24 +254,14 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   }
 
   @override
-  Future<Either<Failures, Uint8List>> getAudioForSegment(
+  Future<Either<Failures, String>> getAudioForSegment(
     String audioEndpoint,
   ) async {
-    // Audio fetching is an online-only operation.
-    if (await networkInfo.isConnected) {
-      try {
-        final audioData = await remoteDataSource.getAudioForSegment(
-          audioEndpoint,
-        );
-        return Right(audioData);
-      } on ServerException catch (e) {
-        return Left(ServerFailure(message: e.message));
-      }
-    } else {
-      // If offline, we cannot fetch the audio. Return a failure.
-      return Left(
-        ServerFailure(message: 'Audio requires an internet connection.'),
-      );
+    try {
+      final result = await remoteDataSource.getAudioForSegment(audioEndpoint);
+      return Right(result);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message));
     }
   }
 

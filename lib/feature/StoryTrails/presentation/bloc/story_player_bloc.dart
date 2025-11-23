@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:typed_data';
+// Removed: import 'dart:typed_data'; (No longer needed)
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:just_audio/just_audio.dart';
@@ -38,7 +38,6 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     required this.markStoryTrailCompletedUseCase,
   }) : _audioPlayer = AudioPlayer(),
        super(StoryPlayerInitial()) {
-    // Listen for audio completion to auto-advance
     _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
         add(NarrationFinished());
@@ -195,13 +194,13 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   ) {
     if (state is StoryPlayerDisplay) {
       final currentState = state as StoryPlayerDisplay;
-      final newCache = Map<String, Uint8List>.from(currentState.audioCache);
-      newCache[event.segmentId] = event.audioData;
+      // Update cache with String URL
+      final newCache = Map<String, String>.from(currentState.audioCache);
+      newCache[event.segmentId] = event.audioUrl;
       emit(currentState.copyWith(audioCache: newCache));
     }
   }
 
-  // --- UPDATED METHOD: SAFE URL CONSTRUCTION & ERROR HANDLING ---
   Future<void> _playSegmentAndPreloadNext(
     Emitter<StoryPlayerState> emit,
     StoryTrail trail,
@@ -212,53 +211,52 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     final currentSegment = trail.segments[progress.currentSegmentIndex];
 
     if (currentSegment.type == SegmentType.narration) {
-      Uint8List? audioData = currentState.audioCache[currentSegment.id];
+      // 1. Check cache for URL
+      String? audioUrl = currentState.audioCache[currentSegment.id];
 
-      // 1. Fetch if not in cache
-      if (audioData == null) {
-        // FIX: Construct URL if null
-        final endpoint =
+      // 2. Fetch if not in cache
+      if (audioUrl == null) {
+        // Construct API endpoint if missing from model (Legacy Support)
+        final apiEndpoint =
             currentSegment.audioEndpoint ??
             '/api/story-trails/segments/${currentSegment.id}/audio';
 
         final result = await getAudioForSegmentUseCase(
-          GetAudioForSegmentParams(audioEndpoint: endpoint),
+          GetAudioForSegmentParams(audioEndpoint: apiEndpoint),
         );
 
         await result.fold(
           (failure) async {
-            // Don't crash the UI for audio failure, just log it.
             print("Audio fetch failed: ${failure.message}");
-            // Optionally emit a specific state if you want to show a toast
           },
-          (data) async {
-            audioData = data;
-            add(_AudioPreloaded(segmentId: currentSegment.id, audioData: data));
+          (url) async {
+            // Success: 'url' is the OBS link or API link
+            audioUrl = url;
+            add(_AudioPreloaded(segmentId: currentSegment.id, audioUrl: url));
           },
         );
       }
 
-      // 2. Play if data exists
-      if (audioData != null) {
+      // 3. Play URL (Stream)
+      if (audioUrl != null) {
+        print("🔍 DEBUG: Trying to play URL: $audioUrl"); // <--- ADD THIS
         try {
-          await _audioPlayer.setAudioSource(BytesAudioSource(audioData!));
+          // KEY CHANGE: Stream directly from URL
+          await _audioPlayer.setUrl(audioUrl!);
           _audioPlayer.play();
         } catch (e) {
           print("Audio playback error: $e");
-          // emit(StoryPlayerError(e.toString(), trail.id)); // Optional: Don't crash UI
         }
       }
     }
 
-    // --- PRELOADING NEXT SEGMENT ---
+    // --- PRELOAD NEXT SEGMENT ---
     final preloadIndex = progress.currentSegmentIndex + 1;
     if (preloadIndex < trail.segments.length) {
       final nextSegment = trail.segments[preloadIndex];
 
-      // Only preload narration segments
       if (nextSegment.type == SegmentType.narration &&
           currentState.audioCache[nextSegment.id] == null) {
-        // FIX: Construct URL if null for next segment too
         final nextEndpoint =
             nextSegment.audioEndpoint ??
             '/api/story-trails/segments/${nextSegment.id}/audio';
@@ -268,30 +266,11 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
         ).then((result) {
           result.fold(
             (failure) => print("Audio preload failed: ${failure.message}"),
-            (data) => add(
-              _AudioPreloaded(segmentId: nextSegment.id, audioData: data),
-            ),
+            (url) =>
+                add(_AudioPreloaded(segmentId: nextSegment.id, audioUrl: url)),
           );
         });
       }
     }
-  }
-}
-
-class BytesAudioSource extends StreamAudioSource {
-  final Uint8List _bytes;
-  BytesAudioSource(this._bytes);
-
-  @override
-  Future<StreamAudioResponse> request([int? start, int? end]) async {
-    start ??= 0;
-    end ??= _bytes.length;
-    return StreamAudioResponse(
-      sourceLength: _bytes.length,
-      contentLength: end - start,
-      offset: start,
-      stream: Stream.value(_bytes.sublist(start, end)),
-      contentType: 'audio/mpeg',
-    );
   }
 }

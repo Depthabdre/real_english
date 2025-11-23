@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
+import 'package:real_english/feature/StoryTrails/presentation/widgets/story_generation_loader.dart';
 import '../../../../app/injection_container.dart';
 import '../bloc/story_trails_list_bloc.dart';
 
@@ -198,9 +199,8 @@ class StoryTrailsListPage extends StatelessWidget {
   // --- Helper widgets restyled for consistency ---
 
   Widget _buildLoadingState() {
-    return const Center(
-      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 4),
-    );
+    // Return the full-screen modern loader
+    return const StoryGenerationLoader();
   }
 
   // Helper widget for a consistent frosted glass container look

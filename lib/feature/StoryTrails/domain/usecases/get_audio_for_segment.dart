@@ -9,9 +9,8 @@ class GetAudioForSegment {
 
   GetAudioForSegment(this.repository);
 
-  Future<Either<Failures, Uint8List>> call(
-    GetAudioForSegmentParams params,
-  ) async {
+  @override
+  Future<Either<Failures, String>> call(GetAudioForSegmentParams params) async {
     return await repository.getAudioForSegment(params.audioEndpoint);
   }
 }

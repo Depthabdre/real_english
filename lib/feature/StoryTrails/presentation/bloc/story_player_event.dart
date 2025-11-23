@@ -21,15 +21,12 @@ class SubmitAnswer extends StoryPlayerEvent {
   List<Object> get props => [chosenAnswerId];
 }
 
-/// Dispatched automatically by the BLoC's audio player listener when a narration finishes.
 class NarrationFinished extends StoryPlayerEvent {}
 
-// --- NEW INTERNAL EVENT ---
-/// This event is added by the BLoC to itself when a background
-/// audio preload has finished downloading.
+// --- UPDATED: Payload is now String audioUrl ---
 class _AudioPreloaded extends StoryPlayerEvent {
   final String segmentId;
-  final Uint8List audioData;
+  final String audioUrl;
 
-  const _AudioPreloaded({required this.segmentId, required this.audioData});
+  const _AudioPreloaded({required this.segmentId, required this.audioUrl});
 }

@@ -14,13 +14,13 @@ class StoryPlayerDisplay extends StoryPlayerState {
   final StoryTrail storyTrail;
   final StoryProgress progress;
 
-  // --- NEW: A cache to hold preloaded audio data ---
-  final Map<String, Uint8List> audioCache;
+  // --- UPDATED: Cache stores URL Strings now, not Uint8List ---
+  final Map<String, String> audioCache;
 
   const StoryPlayerDisplay({
     required this.storyTrail,
     required this.progress,
-    this.audioCache = const {}, // Default to an empty map
+    this.audioCache = const {},
   });
 
   int get currentSegmentIndex => progress.currentSegmentIndex;
@@ -29,11 +29,10 @@ class StoryPlayerDisplay extends StoryPlayerState {
   @override
   List<Object?> get props => [storyTrail, progress, audioCache];
 
-  // --- NEW: A full copyWith method for easier state updates ---
   StoryPlayerDisplay copyWith({
     StoryTrail? storyTrail,
     StoryProgress? progress,
-    Map<String, Uint8List>? audioCache,
+    Map<String, String>? audioCache, // Updated type here too
   }) {
     return StoryPlayerDisplay(
       storyTrail: storyTrail ?? this.storyTrail,

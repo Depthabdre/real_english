@@ -1,8 +1,9 @@
+import 'dart:async';
+import 'dart:ui'; // For ImageFilter
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 
 import '../../../../app/injection_container.dart';
 import '../../domain/entities/single_choice_challenge.dart';
@@ -31,98 +32,143 @@ class StoryPlayerView extends StatefulWidget {
 }
 
 class _StoryPlayerViewState extends State<StoryPlayerView> {
-  late final FlutterTts _flutterTts;
-  late final AudioPlayer _soundPlayer;
+  // Track selected option for Challenges
+  String? _selectedChoiceId;
 
-  @override
-  void initState() {
-    super.initState();
-    _soundPlayer = AudioPlayer();
-    _flutterTts = FlutterTts();
-    _setupTts();
-  }
+  // --- 1. Persistent Top Feedback Toast ---
+  void _showFeedbackToast(
+    BuildContext context,
+    bool isCorrect,
+    String message,
+  ) {
+    final overlay = Overlay.of(context);
+    late OverlayEntry overlayEntry;
 
-  Future<void> _setupTts() async {
-    await _flutterTts.setSpeechRate(0.5);
-    await _flutterTts.setPitch(1.0);
-  }
-
-  @override
-  void dispose() {
-    _soundPlayer.dispose();
-    _flutterTts.stop();
-    super.dispose();
-  }
-
-  void _speakChallengePrompt(String text) {
-    _flutterTts.speak(text);
-  }
-
-  void _playFeedbackSound(bool isCorrect) async {
-    final assetPath =
-        'assets/sounds/${isCorrect ? 'correct.mp3' : 'incorrect.mp3'}';
-    try {
-      await _soundPlayer.setAsset(assetPath);
-      _soundPlayer.play();
-    } catch (e) {
-      print("Error playing sound: $e");
-    }
-  }
-
-  void _showFeedback(BuildContext context, bool isCorrect, String message) {
-    _playFeedbackSound(isCorrect);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).padding.top + 20,
+        left: 20,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 300),
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, -20 * (1 - value)),
+                  child: child,
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                // Green for correct, Red for wrong
+                color: isCorrect
+                    ? const Color(0xFF4CAF50)
+                    : const Color(0xFFE57373),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isCorrect
+                        ? Icons.check_circle_outline
+                        : Icons.error_outline,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        backgroundColor: isCorrect
-            ? Colors.green.shade600
-            : Colors.red.shade600,
-        duration: const Duration(seconds: 2),
       ),
     );
+
+    overlay.insert(overlayEntry);
+    // Persist for 3 seconds, then remove
+    Future.delayed(const Duration(seconds: 3), () {
+      if (overlayEntry.mounted) overlayEntry.remove();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Context-Aware Theme Detection
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Dynamic Background Colors
+    final bgColor = isDark ? const Color(0xFF0B0E14) : const Color(0xFFF5F5F5);
+
     return Scaffold(
+      backgroundColor: bgColor,
+      // Extend body behind AppBar for immersion
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: BlocBuilder<StoryPlayerBloc, StoryPlayerState>(
-          builder: (context, state) {
-            if (state is StoryPlayerDisplay) {
-              return Text(state.storyTrail.title);
-            } else if (state is AnswerFeedback) {
-              return Text(state.displayState.storyTrail.title);
-            }
-            return const Text('');
-          },
-        ),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.3),
+            shape: BoxShape.circle,
+          ),
+          child: const BackButton(color: Colors.white),
+        ),
+        actions: [
+          // Optional: Progress indicator or level badge in top right
+        ],
       ),
       body: BlocListener<StoryPlayerBloc, StoryPlayerState>(
         listener: (context, state) {
           if (state is AnswerFeedback) {
-            _showFeedback(context, state.isCorrect, state.feedbackMessage);
+            _showFeedbackToast(context, state.isCorrect, state.feedbackMessage);
+            // Reset selection after feedback
+            setState(() {
+              _selectedChoiceId = null;
+            });
           }
         },
         child: BlocBuilder<StoryPlayerBloc, StoryPlayerState>(
           builder: (context, state) {
+            // 1. Loading State
             if (state is StoryPlayerInitial || state is StoryPlayerLoading) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (state is StoryPlayerError)
-              return _buildErrorState(context, state);
-            if (state is LevelCompleted)
-              return _buildLevelCompletedState(context, state);
-            if (state is StoryPlayerFinished)
-              return _buildFinishedState(context, state);
 
+            // 2. Level Up State
+            if (state is LevelCompleted) {
+              return _buildLevelCompleted(context, state, isDark);
+            }
+
+            // 3. Story Finished State
+            if (state is StoryPlayerFinished) {
+              return _buildStoryFinished(context, state, isDark);
+            }
+
+            // 4. Main Player State
             StorySegment? segment;
             if (state is StoryPlayerDisplay) {
               segment = state.currentSegment;
@@ -131,261 +177,552 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
             }
 
             if (segment != null) {
-              return _buildContent(context, segment);
+              return _buildLayout(context, segment, isDark);
             }
 
-            return const Center(child: Text('An unknown state occurred.'));
+            return const SizedBox.shrink();
           },
         ),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, StorySegment segment) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      transitionBuilder: (child, animation) =>
-          FadeTransition(opacity: animation, child: child),
-      child: Container(
-        key: ValueKey<String>(segment.id),
-        // --- THE FIX IS HERE ---
-        // We add a wildcard case `_` to handle any enum values not explicitly
-        // matched, such as `SegmentType.audioChallenge`.
-        child: switch (segment.type) {
-          SegmentType.narration => _buildNarrationSegment(context, segment),
-          SegmentType.choiceChallenge => _buildChoiceChallengeSegment(
-            context,
-            segment,
+  // --- Main Layout Strategy ---
+  Widget _buildLayout(BuildContext context, StorySegment segment, bool isDark) {
+    return Stack(
+      children: [
+        // 1. Top Image (Full Width, Cinematic)
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: MediaQuery.of(context).size.height * 0.60, // Takes top 60%
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 800),
+            child: Image.network(
+              key: ValueKey(segment.imageUrl),
+              segment.imageUrl ?? '',
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              loadingBuilder: (_, child, p) =>
+                  p == null ? child : Container(color: Colors.black12),
+              errorBuilder: (_, __, ___) => Container(color: Colors.grey[900]),
+            ),
           ),
-          _ => Center(
-            child: Text('Unsupported segment type: ${segment.type.name}'),
+        ),
+
+        // Gradient Fade ( Seamless blend between image and content)
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.1),
+                  isDark ? const Color(0xFF0B0E14) : const Color(0xFFF5F5F5),
+                ],
+                stops: const [0.4, 0.6, 0.9],
+              ),
+            ),
           ),
-        },
-      ),
+        ),
+
+        // 2. The Content Card (Bottom Aligned, Auto-Sized)
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: SingleChildScrollView(
+            child: Container(
+              margin: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                MediaQuery.of(context).padding.bottom + 20,
+              ),
+              child: _buildGlassCard(context, segment, isDark),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildNarrationSegment(BuildContext context, StorySegment segment) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildSegmentImage(segment.imageUrl),
-          const SizedBox(height: 48),
-          Column(
-            children: [
-              Icon(
-                Icons.graphic_eq_rounded,
-                color: theme.colorScheme.primary,
-                size: 48,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Listening...',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: theme.textTheme.bodyMedium?.color?.withAlpha(
-                    (255 * 0.7).round(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChoiceChallengeSegment(
+  Widget _buildGlassCard(
     BuildContext context,
     StorySegment segment,
+    bool isDark,
   ) {
-    final theme = Theme.of(context);
-    final challenge = segment.challenge as SingleChoiceChallenge;
-    bool isResponding =
-        context.watch<StoryPlayerBloc>().state is AnswerFeedback;
+    // Card Colors based on Theme
+    final cardColor = isDark
+        ? const Color(0xFF1E222B).withValues(alpha: 0.95)
+        : Colors.white.withValues(alpha: 0.95);
+    final textColor = isDark ? Colors.white : const Color(0xFF212121);
+    final borderColor = isDark ? Colors.white10 : Colors.black12;
 
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildSegmentImage(segment.imageUrl),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  challenge.prompt,
-                  style: theme.textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.volume_up_rounded),
-                onPressed: () => _speakChallengePrompt(challenge.prompt),
-                tooltip: 'Listen to prompt',
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: borderColor, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          const SizedBox(height: 48),
-          ...challenge.choices.map((choice) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: ElevatedButton(
-                style: theme.elevatedButtonTheme.style?.copyWith(
-                  padding: WidgetStateProperty.all(
-                    const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-                onPressed: isResponding
-                    ? null
-                    : () => context.read<StoryPlayerBloc>().add(
-                        SubmitAnswer(chosenAnswerId: choice.id),
+          child: Column(
+            mainAxisSize: MainAxisSize.min, // "Not too tall", fits content
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                transitionBuilder: (child, animation) =>
+                    FadeTransition(opacity: animation, child: child),
+                child: segment.type == SegmentType.choiceChallenge
+                    ? _buildChallengeContent(
+                        context,
+                        segment,
+                        textColor,
+                        isDark,
+                      )
+                    : _buildNarrationContent(
+                        context,
+                        segment,
+                        textColor,
+                        isDark,
                       ),
-                child: Text(choice.text),
               ),
-            );
-          }),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildSegmentImage(String? imageUrl) {
-    if (imageUrl == null || imageUrl.isEmpty) {
-      return const SizedBox(height: 200);
-    }
-    return Container(
-      height: 200,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-      child: Image.network(
-        imageUrl,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return const Center(child: CircularProgressIndicator());
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return const Icon(
-            Icons.broken_image_outlined,
-            size: 48,
-            color: Colors.grey,
-          );
-        },
-      ),
+  // --- Narration Mode (Text + Controls) ---
+  Widget _buildNarrationContent(
+    BuildContext context,
+    StorySegment segment,
+    Color textColor,
+    bool isDark,
+  ) {
+    return Column(
+      key: ValueKey(segment.id),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Typewriter Text
+        SizedBox(
+          width: double.infinity,
+          child: TypewriterText(
+            text: segment.textContent,
+            style: TextStyle(
+              fontFamily: 'Georgia', // Elegant serif font
+              fontSize: 18,
+              height: 1.6,
+              color: textColor,
+            ),
+            // Assuming average reading speed.
+            // In a real app, you might sync this with actual audio duration if available.
+            typingSpeed: const Duration(milliseconds: 40),
+          ),
+        ),
+
+        const SizedBox(height: 32),
+
+        // Player Controls (Audio Bar)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF2A303C) : const Color(0xFFF0F4F8),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Tiny Album Art
+              CircleAvatar(
+                radius: 20,
+                backgroundImage: NetworkImage(segment.imageUrl ?? ''),
+                backgroundColor: Colors.grey,
+              ),
+
+              const SizedBox(width: 16),
+
+              // Controls
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // Replay Button
+                    IconButton(
+                      icon: const Icon(Icons.replay_10_rounded),
+                      tooltip: "Replay",
+                      onPressed: () {
+                        context.read<StoryPlayerBloc>().add(ReplayAudio());
+                      },
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Next / Continue Button
+                    // Audio plays automatically, this is for manual progression
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1976D2), // Brand Blue
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                        ),
+                        tooltip: "Next",
+                        onPressed: () {
+                          context.read<StoryPlayerBloc>().add(
+                            NarrationFinished(),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildLevelCompletedState(BuildContext context, LevelCompleted state) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.workspace_premium_rounded,
-              color: Colors.amber,
-              size: 100,
+  // --- Challenge Mode (Question + Interactive Choices) ---
+  Widget _buildChallengeContent(
+    BuildContext context,
+    StorySegment segment,
+    Color textColor,
+    bool isDark,
+  ) {
+    final challenge = segment.challenge as SingleChoiceChallenge;
+
+    return Column(
+      key: ValueKey(segment.id),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Label
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            "QUICK CHECK",
+            style: TextStyle(
+              color: isDark ? Colors.white54 : Colors.black45,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Level Complete!',
-              style: theme.textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'You have mastered all the stories in this level. Get ready for new adventures in Level ${state.newLevel}!',
-              style: theme.textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 48),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Question
+        Text(
+          challenge.prompt,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: textColor,
+            height: 1.3,
+          ),
+          textAlign: TextAlign.left,
+        ),
+        const SizedBox(height: 24),
+
+        // Choices List
+        ...challenge.choices.map((choice) {
+          final isSelected = _selectedChoiceId == choice.id;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedChoiceId = choice.id;
+                });
+                // Auto-submit after small delay for visual feedback
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  context.read<StoryPlayerBloc>().add(
+                    SubmitAnswer(chosenAnswerId: choice.id),
+                  );
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
+                  horizontal: 20,
                   vertical: 16,
                 ),
+                decoration: BoxDecoration(
+                  // 🎨 Blue when selected, surface color when not
+                  color: isSelected
+                      ? const Color(0xFF1976D2) // Active Blue
+                      : (isDark ? const Color(0xFF2A303C) : Colors.white),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isSelected
+                        ? Colors.transparent
+                        : (isDark ? Colors.white12 : Colors.black12),
+                  ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF1976D2,
+                            ).withValues(alpha: 0.4),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : [],
+                ),
+                child: Row(
+                  children: [
+                    // Choice Image/Icon
+                    if (choice.imageUrl != null)
+                      Container(
+                        width: 44,
+                        height: 44,
+                        margin: const EdgeInsets.only(right: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          image: DecorationImage(
+                            image: NetworkImage(choice.imageUrl!),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+
+                    Expanded(
+                      child: Text(
+                        choice.text,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                          color: isSelected ? Colors.white : textColor,
+                        ),
+                      ),
+                    ),
+
+                    // Checkmark indicator
+                    if (isSelected)
+                      const Icon(
+                        Icons.check_circle,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                  ],
+                ),
               ),
-              onPressed: () => context.go('/story-trails'),
-              child: const Text('Explore Next Level'),
             ),
-          ],
+          );
+        }),
+      ],
+    );
+  }
+
+  // --- Completion Screens ---
+
+  Widget _buildLevelCompleted(
+    BuildContext context,
+    LevelCompleted state,
+    bool isDark,
+  ) {
+    return _buildCompletionCard(
+      context,
+      icon: Icons.workspace_premium_rounded,
+      iconColor: Colors.amber,
+      title: "Chapter Complete",
+      subtitle: "Welcome to Level ${state.newLevel}",
+      buttonText: "Continue Journey",
+      // On press: Go back to list, which triggers next level generation logic
+      onPressed: () => context.go('/story-trails'),
+      isDark: isDark,
+    );
+  }
+
+  Widget _buildStoryFinished(
+    BuildContext context,
+    StoryPlayerFinished state,
+    bool isDark,
+  ) {
+    return _buildCompletionCard(
+      context,
+      icon: Icons.auto_stories,
+      iconColor: Colors.blueAccent,
+      title: "Story Complete",
+      subtitle: "+${state.finalProgress.xpEarned} XP Gained",
+      buttonText: "Next Adventure",
+      onPressed: () => context.go('/story-trails'),
+      isDark: isDark,
+    );
+  }
+
+  Widget _buildCompletionCard(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String buttonText,
+    required VoidCallback onPressed,
+    required bool isDark,
+  }) {
+    // Dark background for completion screen
+    final bgColor = const Color(0xFF0B0E14);
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(40),
+          decoration: BoxDecoration(
+            color: const Color(0xFF151B25),
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(
+              color: iconColor.withValues(alpha: 0.3),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: iconColor.withValues(alpha: 0.2),
+                blurRadius: 50,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: iconColor, size: 80),
+              const SizedBox(height: 30),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  fontFamily: 'Georgia',
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                subtitle,
+                style: const TextStyle(fontSize: 16, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: onPressed,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: iconColor,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                  child: Text(
+                    buttonText,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildFinishedState(BuildContext context, StoryPlayerFinished state) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.park_rounded, color: Colors.green, size: 80),
-            const SizedBox(height: 24),
-            Text('Story Complete!', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 16),
-            Text(
-              'Great job! You earned ${state.finalProgress.xpEarned} XP. Your learning tree grew a little taller! 🌳',
-              style: theme.textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 48),
-            ElevatedButton(
-              onPressed: () => context.go('/story-trails'),
-              child: const Text('Back to Adventures'),
-            ),
-          ],
-        ),
-      ),
-    );
+// --- 3. The Typewriter Widget (Helper) ---
+class TypewriterText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final Duration typingSpeed;
+
+  const TypewriterText({
+    super.key,
+    required this.text,
+    required this.style,
+    this.typingSpeed = const Duration(milliseconds: 50),
+  });
+
+  @override
+  State<TypewriterText> createState() => _TypewriterTextState();
+}
+
+class _TypewriterTextState extends State<TypewriterText> {
+  String _displayedText = "";
+  Timer? _timer;
+  int _charIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTyping();
   }
 
-  Widget _buildErrorState(BuildContext context, StoryPlayerError state) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.redAccent, size: 64),
-            const SizedBox(height: 16),
-            Text(
-              'Oh no!',
-              style: theme.textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              state.message,
-              style: theme.textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => context.read<StoryPlayerBloc>().add(
-                StartStory(trailId: state.trailId),
-              ),
-              child: const Text('Try Again'),
-            ),
-          ],
-        ),
-      ),
-    );
+  @override
+  void didUpdateWidget(TypewriterText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      _startTyping();
+    }
+  }
+
+  void _startTyping() {
+    _timer?.cancel();
+    _charIndex = 0;
+    _displayedText = "";
+
+    _timer = Timer.periodic(widget.typingSpeed, (timer) {
+      if (_charIndex < widget.text.length) {
+        if (!mounted) return;
+        setState(() {
+          _charIndex++;
+          _displayedText = widget.text.substring(0, _charIndex);
+        });
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(_displayedText, style: widget.style, textAlign: TextAlign.left);
   }
 }

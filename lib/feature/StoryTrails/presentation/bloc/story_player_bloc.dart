@@ -48,6 +48,7 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     on<SubmitAnswer>(_onSubmitAnswer);
     on<NarrationFinished>(_onNarrationFinished);
     on<_AudioPreloaded>(_onAudioPreloaded);
+    on<ReplayAudio>(_onReplayAudio);
   }
 
   @override
@@ -81,6 +82,17 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
         );
       },
     );
+  }
+
+  Future<void> _onReplayAudio(
+    ReplayAudio event,
+    Emitter<StoryPlayerState> emit,
+  ) async {
+    if (state is StoryPlayerDisplay) {
+      // Seek to start and play
+      await _audioPlayer.seek(Duration.zero);
+      _audioPlayer.play();
+    }
   }
 
   Future<void> _onSubmitAnswer(
@@ -136,8 +148,10 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     Emitter<StoryPlayerState> emit,
   ) async {
     final currentState = state;
-    if (currentState is! StoryPlayerDisplay && currentState is! AnswerFeedback)
+    if (currentState is! StoryPlayerDisplay &&
+        currentState is! AnswerFeedback) {
       return;
+    }
 
     final displayState = currentState is StoryPlayerDisplay
         ? currentState

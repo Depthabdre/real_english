@@ -21,6 +21,8 @@ class SubmitAnswer extends StoryPlayerEvent {
   List<Object> get props => [chosenAnswerId];
 }
 
+class ReplayAudio extends StoryPlayerEvent {}
+
 class NarrationFinished extends StoryPlayerEvent {}
 
 // --- UPDATED: Payload is now String audioUrl ---

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data'; // Import for Uint8List
+// Import for Uint8List
 import 'package:http/http.dart' as http;
 
 import '../../../../core/errors/exception.dart';
@@ -36,7 +36,7 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
   final bool _useDummyData = false;
 
   // --- REFACTORED: A more general base URL for the whole API ---
-  final String _apiBaseUrl = "http://10.73.218.123:3000"; // Your machine's IP
+  final String _apiBaseUrl = "http://10.203.204.123:3000"; // Your machine's IP
 
   StoryTrailsRemoteDataSourceImpl({
     required this.client,

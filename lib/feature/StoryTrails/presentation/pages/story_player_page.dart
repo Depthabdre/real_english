@@ -576,6 +576,9 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
     );
   }
 
+  // ... (Previous imports and class definition remain the same) ...
+
+  // Replace the old _buildCompletionCard with this new one
   Widget _buildCompletionCard(
     BuildContext context, {
     required IconData icon,
@@ -586,69 +589,178 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
     required VoidCallback onPressed,
     required bool isDark,
   }) {
-    // Dark background for completion screen
-    final bgColor = const Color(0xFF0B0E14);
+    // 1. Theme-Aware Colors
+    final bgColor = isDark ? const Color(0xFF0B0E14) : const Color(0xFFF5F7FA);
+    final cardColor = isDark ? const Color(0xFF151B25) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF212121);
+    final subTextColor = isDark ? Colors.grey : const Color(0xFF757575);
+    final borderColor = isDark
+        ? iconColor.withValues(alpha: 0.3)
+        : Colors.grey.withValues(alpha: 0.2);
+    final shadowColor = isDark
+        ? iconColor.withValues(alpha: 0.1)
+        : Colors.black.withValues(alpha: 0.05);
 
     return Scaffold(
       backgroundColor: bgColor,
       body: Center(
         child: Container(
-          margin: const EdgeInsets.all(32),
-          padding: const EdgeInsets.all(40),
+          width: double.infinity,
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
           decoration: BoxDecoration(
-            color: const Color(0xFF151B25),
+            color: cardColor,
             borderRadius: BorderRadius.circular(40),
-            border: Border.all(
-              color: iconColor.withValues(alpha: 0.3),
-              width: 1,
-            ),
+            border: Border.all(color: borderColor, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: iconColor.withValues(alpha: 0.2),
-                blurRadius: 50,
+                color: shadowColor,
+                blurRadius: 40,
                 spreadRadius: 5,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: iconColor, size: 80),
-              const SizedBox(height: 30),
+              // 1. Header
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  fontFamily: 'Georgia',
+                  color: textColor,
+                  fontFamily: 'Georgia', // Matches the serif look in image
+                  letterSpacing: 0.5,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(
                 subtitle,
-                style: const TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(fontSize: 15, color: subTextColor),
                 textAlign: TextAlign.center,
               ),
+
               const SizedBox(height: 40),
+
+              // 2. The Stats Row (Circle + Bars)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Circular Progress
+                  SizedBox(
+                    width: 120,
+                    height: 120,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 120,
+                          height: 120,
+                          child: CircularProgressIndicator(
+                            value: 0.85, // 85%
+                            strokeWidth: 8,
+                            backgroundColor: isDark
+                                ? Colors.white10
+                                : Colors.grey[200],
+                            color: iconColor,
+                            strokeCap: StrokeCap.round,
+                          ),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "85%",
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                                fontFamily: 'Georgia',
+                              ),
+                            ),
+                            Text(
+                              "Mastered",
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: subTextColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 30),
+
+                  // Bar Chart Simulation
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _buildBar(
+                            height: 30,
+                            color: iconColor.withValues(alpha: 0.5),
+                            label: "57%",
+                            textColor: subTextColor,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildBar(
+                            height: 50,
+                            color: iconColor.withValues(alpha: 0.8),
+                            label: "56%",
+                            textColor: subTextColor,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildBar(
+                            height: 70,
+                            color: iconColor,
+                            label: "36%",
+                            textColor: textColor,
+                          ), // Highlight
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Performance",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: subTextColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 50),
+
+              // 3. Button
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: 54,
                 child: ElevatedButton(
                   onPressed: onPressed,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: iconColor,
-                    foregroundColor: Colors.black,
+                    foregroundColor: isDark ? Colors.black : Colors.white,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
+                      borderRadius: BorderRadius.circular(27),
                     ),
                   ),
                   child: Text(
-                    buttonText,
+                    buttonText.toUpperCase(),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 14,
+                      letterSpacing: 1.0,
                     ),
                   ),
                 ),
@@ -659,6 +771,30 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
       ),
     );
   }
+}
+
+// Helper for the bar chart bars
+Widget _buildBar({
+  required double height,
+  required Color color,
+  required String label,
+  required Color textColor,
+}) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(label, style: TextStyle(fontSize: 10, color: textColor)),
+      const SizedBox(height: 4),
+      Container(
+        width: 12,
+        height: height,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    ],
+  );
 }
 
 // --- 3. The Typewriter Widget (Helper) ---

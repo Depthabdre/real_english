@@ -1,4 +1,3 @@
-
 import 'package:dartz/dartz.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/level_completion_status.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
@@ -216,36 +215,58 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   Future<Either<Failures, LevelCompletionStatus>> markStoryTrailCompleted(
     String trailId,
   ) async {
-    // This operation now requires an internet connection.
     if (await networkInfo.isConnected) {
       try {
-        // Delegate the entire operation to the remote data source.
-        // The backend now handles all the logic.
+        // 1. Call Backend
         final levelStatus = await remoteDataSource.markStoryTrailCompleted(
           trailId,
         );
 
-        // Optional: Update local progress and profile based on the successful remote call.
-        // This is good for keeping the local cache in sync.
+        // 2. Mark Story as Completed in Local Cache (Existing Logic)
         final progressEither = await getUserStoryProgress(trailId);
-        progressEither.fold(
-          (_) => null, // Silently fail if progress can't be fetched
-          (progress) {
-            final updatedProgress = (progress as StoryProgressModel).copyWith(
-              isCompleted: true,
-              completionDate: DateTime.now(),
-            );
-            localDataSource.cacheUserStoryProgress(updatedProgress);
-          },
-        );
+        progressEither.fold((_) => null, (progress) {
+          final updatedProgress = (progress as StoryProgressModel).copyWith(
+            isCompleted: true,
+            completionDate: DateTime.now(),
+          );
+          localDataSource.cacheUserStoryProgress(updatedProgress);
+        });
 
-        // Return the status received directly from the server.
+        // --- NEW FIX STARTS HERE ---
+        // 3. Update User Profile Cache with New Level/XP
+        // We fetch the current profile, update fields, and save it back.
+        try {
+          final profileEither = await getUserLearningProfile();
+          profileEither.fold(
+            (_) => null, // Ignore failures
+            (currentProfile) async {
+              final updatedProfile =
+                  (currentProfile as UserLearningProfileModel).copyWith(
+                    // Update Level from Server Response
+                    currentLearningLevel: levelStatus.newLevel,
+                    // Add Completed ID
+                    completedTrailIds: [
+                      ...currentProfile.completedTrailIds,
+                      trailId,
+                    ],
+                    // Add XP (You can pass actual XP from server later)
+                    xpGlobal: currentProfile.xpGlobal + 50,
+                  );
+
+              await localDataSource.cacheUserLearningProfile(updatedProfile);
+              print("✅ Local Profile Updated: Level ${levelStatus.newLevel}");
+            },
+          );
+        } catch (e) {
+          print("⚠️ Failed to sync profile: $e");
+        }
+        // --- NEW FIX ENDS HERE ---
+
         return Right(levelStatus);
       } on ServerException catch (e) {
         return Left(ServerFailure(message: e.message));
       }
     } else {
-      // If offline, we cannot complete the story. Return a failure.
       return Left(
         ServerFailure(message: 'You must be online to complete a story.'),
       );

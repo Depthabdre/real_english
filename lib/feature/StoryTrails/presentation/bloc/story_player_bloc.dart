@@ -25,6 +25,7 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   final SubmitChallengeAnswer submitChallengeAnswerUseCase;
   final SaveUserStoryProgress saveUserStoryProgressUseCase;
   final MarkStoryTrailCompleted markStoryTrailCompletedUseCase;
+  
 
   final AudioPlayer _audioPlayer;
   StreamSubscription? _playerStateSubscription;

@@ -315,30 +315,40 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
     Color textColor,
     bool isDark,
   ) {
+    // 1. WATCH THE STATE
+    final state = context.watch<StoryPlayerBloc>().state;
+    bool shouldStartTyping = false;
+
+    if (state is StoryPlayerDisplay) {
+      // Text starts only if the BLoC confirms this segment's audio is playing
+      shouldStartTyping = state.playingSegmentId == segment.id;
+    }
+
     return Column(
       key: ValueKey(segment.id),
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Typewriter Text
+        // 2. Typewriter Text
         SizedBox(
           width: double.infinity,
           child: TypewriterText(
+            key: ValueKey(segment.id), // Important for resetting
             text: segment.textContent,
             style: TextStyle(
-              fontFamily: 'Georgia', // Elegant serif font
+              fontFamily: 'Georgia',
               fontSize: 18,
               height: 1.6,
               color: textColor,
             ),
-            // Assuming average reading speed.
-            // In a real app, you might sync this with actual audio duration if available.
-            typingSpeed: const Duration(milliseconds: 40),
+            typingSpeed: const Duration(milliseconds: 95),
+            // PASS THE FLAG HERE
+            shouldStart: shouldStartTyping,
           ),
         ),
 
         const SizedBox(height: 32),
 
-        // Player Controls (Audio Bar)
+        // 3. Player Controls
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -348,7 +358,6 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Tiny Album Art
               CircleAvatar(
                 radius: 20,
                 backgroundImage: NetworkImage(segment.imageUrl ?? ''),
@@ -357,7 +366,6 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
 
               const SizedBox(width: 16),
 
-              // Controls
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -375,10 +383,9 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
                     const SizedBox(width: 8),
 
                     // Next / Continue Button
-                    // Audio plays automatically, this is for manual progression
                     Container(
                       decoration: const BoxDecoration(
-                        color: Color(0xFF1976D2), // Brand Blue
+                        color: Color(0xFF1976D2),
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
@@ -388,6 +395,7 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
                         ),
                         tooltip: "Next",
                         onPressed: () {
+                          // Manual Progression Only
                           context.read<StoryPlayerBloc>().add(
                             NarrationFinished(),
                           );
@@ -802,12 +810,14 @@ class TypewriterText extends StatefulWidget {
   final String text;
   final TextStyle style;
   final Duration typingSpeed;
+  final bool shouldStart; // Controlled by the BLoC
 
   const TypewriterText({
     super.key,
     required this.text,
     required this.style,
     this.typingSpeed = const Duration(milliseconds: 50),
+    required this.shouldStart,
   });
 
   @override
@@ -822,21 +832,49 @@ class _TypewriterTextState extends State<TypewriterText> {
   @override
   void initState() {
     super.initState();
-    _startTyping();
+    // Only start if the flag is true initially (unlikely, but good practice)
+    if (widget.shouldStart) {
+      _startTypingSequence();
+    }
   }
 
   @override
   void didUpdateWidget(TypewriterText oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // 1. If text content changed (New Segment), reset everything
     if (oldWidget.text != widget.text) {
-      _startTyping();
+      _reset();
+    }
+
+    // 2. Logic: Wait for signal to start
+    // If flag goes from False -> True, START typing
+    if (!oldWidget.shouldStart && widget.shouldStart) {
+      _startTypingSequence();
+    }
+
+    // 3. Logic: Handle Replay
+    // If flag goes from True -> False (Reset state), clear text
+    if (oldWidget.shouldStart && !widget.shouldStart) {
+      _reset();
     }
   }
 
-  void _startTyping() {
+  void _reset() {
+    _timer?.cancel();
+    setState(() {
+      _displayedText = "";
+      _charIndex = 0;
+    });
+  }
+
+  void _startTypingSequence() {
     _timer?.cancel();
     _charIndex = 0;
-    _displayedText = "";
+    // Ensure we start empty
+    setState(() {
+      _displayedText = "";
+    });
 
     _timer = Timer.periodic(widget.typingSpeed, (timer) {
       if (_charIndex < widget.text.length) {
@@ -859,6 +897,7 @@ class _TypewriterTextState extends State<TypewriterText> {
 
   @override
   Widget build(BuildContext context) {
+    // Align left for reading flow
     return Text(_displayedText, style: widget.style, textAlign: TextAlign.left);
   }
 }

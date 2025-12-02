@@ -25,7 +25,6 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   final SubmitChallengeAnswer submitChallengeAnswerUseCase;
   final SaveUserStoryProgress saveUserStoryProgressUseCase;
   final MarkStoryTrailCompleted markStoryTrailCompletedUseCase;
-  
 
   final AudioPlayer _audioPlayer;
   StreamSubscription? _playerStateSubscription;
@@ -41,7 +40,9 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
        super(StoryPlayerInitial()) {
     _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
-        add(NarrationFinished());
+        // --- CHANGE: Comment this out to stop auto-advancing ---
+        // add(NarrationFinished());
+        // -------------------------------------------------------
       }
     });
 
@@ -90,9 +91,25 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     Emitter<StoryPlayerState> emit,
   ) async {
     if (state is StoryPlayerDisplay) {
-      // Seek to start and play
+      final currentState = state as StoryPlayerDisplay;
+
+      // Briefly reset the playing ID to trigger the UI to reset text
+      emit(
+        StoryPlayerDisplay(
+          storyTrail: currentState.storyTrail,
+          progress: currentState.progress,
+          audioCache: currentState.audioCache,
+          playingSegmentId: null,
+        ),
+      );
+
       await _audioPlayer.seek(Duration.zero);
       _audioPlayer.play();
+
+      // Signal UI to start typing again
+      emit(
+        currentState.copyWith(playingSegmentId: currentState.currentSegment.id),
+      );
     }
   }
 
@@ -216,24 +233,36 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     }
   }
 
+  // 3. FULLY UPDATED: _playSegmentAndPreloadNext
   Future<void> _playSegmentAndPreloadNext(
     Emitter<StoryPlayerState> emit,
     StoryTrail trail,
     StoryProgress progress,
   ) async {
     if (state is! StoryPlayerDisplay) return;
+    
+    // We create a fresh instance to ensure clean state transitions
     final currentState = state as StoryPlayerDisplay;
     final currentSegment = trail.segments[progress.currentSegmentIndex];
 
-    if (currentSegment.type == SegmentType.narration) {
-      // 1. Check cache for URL
-      String? audioUrl = currentState.audioCache[currentSegment.id];
+    // STEP A: RESET UI
+    // We emit a state with playingSegmentId = null. 
+    // This tells the UI to clear the text immediately while we load audio.
+    final resetState = StoryPlayerDisplay(
+      storyTrail: currentState.storyTrail,
+      progress: currentState.progress,
+      audioCache: currentState.audioCache,
+      playingSegmentId: null,
+    );
+    emit(resetState);
 
-      // 2. Fetch if not in cache
+    // STEP B: HANDLE AUDIO LOGIC
+    if (currentSegment.type == SegmentType.narration) {
+      String? audioUrl = resetState.audioCache[currentSegment.id];
+
+      // 1. If URL not in cache, fetch it
       if (audioUrl == null) {
-        // Construct API endpoint if missing from model (Legacy Support)
-        final apiEndpoint =
-            currentSegment.audioEndpoint ??
+        final apiEndpoint = currentSegment.audioEndpoint ??
             '/api/story-trails/segments/${currentSegment.id}/audio';
 
         final result = await getAudioForSegmentUseCase(
@@ -245,44 +274,58 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
             print("Audio fetch failed: ${failure.message}");
           },
           (url) async {
-            // Success: 'url' is the OBS link or API link
             audioUrl = url;
+            // Cache it for later
             add(_AudioPreloaded(segmentId: currentSegment.id, audioUrl: url));
           },
         );
       }
 
-      // 3. Play URL (Stream)
+      // 2. If we have a URL, Load and Play
       if (audioUrl != null) {
-        print("🔍 DEBUG: Trying to play URL: $audioUrl"); // <--- ADD THIS
         try {
-          // KEY CHANGE: Stream directly from URL
+          // This awaits until the audio is ready to buffer/play
           await _audioPlayer.setUrl(audioUrl!);
+          
+          // Start playback
           _audioPlayer.play();
+
+          // STEP C: SYNC UI
+          // NOW we emit the state with the ID. 
+          // The TypewriterText widget watches this and starts ONLY now.
+          emit(resetState.copyWith(playingSegmentId: currentSegment.id));
+          
         } catch (e) {
           print("Audio playback error: $e");
         }
+      } else {
+        // Fallback: If no audio, just show text immediately
+        emit(resetState.copyWith(playingSegmentId: currentSegment.id));
       }
+    } else {
+      // If it's a Challenge (no audio), show text immediately
+      emit(resetState.copyWith(playingSegmentId: currentSegment.id));
     }
 
-    // --- PRELOAD NEXT SEGMENT ---
+    // STEP D: PRELOAD NEXT (Optimization)
     final preloadIndex = progress.currentSegmentIndex + 1;
     if (preloadIndex < trail.segments.length) {
       final nextSegment = trail.segments[preloadIndex];
 
       if (nextSegment.type == SegmentType.narration &&
-          currentState.audioCache[nextSegment.id] == null) {
-        final nextEndpoint =
-            nextSegment.audioEndpoint ??
+          resetState.audioCache[nextSegment.id] == null) {
+        
+        final nextEndpoint = nextSegment.audioEndpoint ??
             '/api/story-trails/segments/${nextSegment.id}/audio';
 
         getAudioForSegmentUseCase(
           GetAudioForSegmentParams(audioEndpoint: nextEndpoint),
         ).then((result) {
           result.fold(
-            (failure) => print("Audio preload failed: ${failure.message}"),
-            (url) =>
-                add(_AudioPreloaded(segmentId: nextSegment.id, audioUrl: url)),
+            (failure) => print("Preload failed: ${failure.message}"),
+            (url) => add(
+              _AudioPreloaded(segmentId: nextSegment.id, audioUrl: url),
+            ),
           );
         });
       }

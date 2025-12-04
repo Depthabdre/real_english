@@ -13,17 +13,19 @@ class StoryPlayerLoading extends StoryPlayerState {}
 class StoryPlayerDisplay extends StoryPlayerState {
   final StoryTrail storyTrail;
   final StoryProgress progress;
-
-  // --- UPDATED: Cache stores URL Strings now, not Uint8List ---
   final Map<String, String> audioCache;
-  // If this ID matches the segment ID, it means audio has started.
-  final String? playingSegmentId;
+
+  // --- NEW FIELDS FOR SYNCING ---
+  final Duration? currentAudioDuration; // Tells UI how fast to type
+  final String?
+  playingSegmentId; // Tells UI *which* segment is actually playing (hides text if null)
 
   const StoryPlayerDisplay({
     required this.storyTrail,
     required this.progress,
     this.audioCache = const {},
-    this.playingSegmentId,
+    this.currentAudioDuration,
+    this.playingSegmentId, // Add to constructor
   });
 
   int get currentSegmentIndex => progress.currentSegmentIndex;
@@ -34,22 +36,23 @@ class StoryPlayerDisplay extends StoryPlayerState {
     storyTrail,
     progress,
     audioCache,
+    currentAudioDuration,
     playingSegmentId,
   ];
 
+  // --- UPDATED COPYWITH ---
   StoryPlayerDisplay copyWith({
     StoryTrail? storyTrail,
     StoryProgress? progress,
     Map<String, String>? audioCache,
-    String? playingSegmentId, // Add to copyWith
+    Duration? currentAudioDuration,
+    String? playingSegmentId, // Add to parameters
   }) {
     return StoryPlayerDisplay(
       storyTrail: storyTrail ?? this.storyTrail,
       progress: progress ?? this.progress,
       audioCache: audioCache ?? this.audioCache,
-      // If null is passed, we keep existing.
-      // If we want to clear it, we might need a specific logic,
-      // but usually overwriting with a new ID is enough.
+      currentAudioDuration: currentAudioDuration ?? this.currentAudioDuration,
       playingSegmentId: playingSegmentId ?? this.playingSegmentId,
     );
   }

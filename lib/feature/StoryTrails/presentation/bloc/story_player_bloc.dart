@@ -38,11 +38,14 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     required this.markStoryTrailCompletedUseCase,
   }) : _audioPlayer = AudioPlayer(),
        super(StoryPlayerInitial()) {
-    _playerStateSubscription = _audioPlayer.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed) {
-        // --- CHANGE: Comment this out to stop auto-advancing ---
-        // add(NarrationFinished());
-        // -------------------------------------------------------
+    _playerStateSubscription = _audioPlayer.playerStateStream.listen((
+      playerState,
+    ) {
+      // FIX: Only trigger finish if we are completed AND we actually played something.
+      // This prevents the player from auto-skipping when it first initializes or loads a URL.
+      if (playerState.processingState == ProcessingState.completed &&
+          _audioPlayer.position.inMilliseconds > 100) {
+        add(NarrationFinished());
       }
     });
 
@@ -256,29 +259,26 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   ) async {
     if (state is! StoryPlayerDisplay) return;
 
-    // We create a fresh instance to ensure clean state transitions
+    // 1. Snapshot current state before making changes
     final currentState = state as StoryPlayerDisplay;
     final currentSegment = trail.segments[progress.currentSegmentIndex];
 
-    // STEP A: RESET UI
-    // We emit a state with playingSegmentId = null.
-    // This tells the UI to clear the text immediately while we load audio.
-    final resetState = StoryPlayerDisplay(
-      storyTrail: currentState.storyTrail,
-      progress: currentState.progress,
-      audioCache: currentState.audioCache,
-      playingSegmentId: null,
+    // 2. RESET UI (Hide Text)
+    // We emit a state with playingSegmentId = null. 
+    // The UI will show an empty text box or loading spinner while we buffer audio.
+    final loadingState = currentState.copyWith(
+      playingSegmentId: null, // <--- Hides text
+      currentAudioDuration: null,
     );
-    emit(resetState);
+    emit(loadingState);
 
-    // STEP B: HANDLE AUDIO LOGIC
+    // 3. HANDLE AUDIO LOGIC
     if (currentSegment.type == SegmentType.narration) {
-      String? audioUrl = resetState.audioCache[currentSegment.id];
+      String? audioUrl = loadingState.audioCache[currentSegment.id];
 
-      // 1. If URL not in cache, fetch it
+      // A. Fetch URL if missing
       if (audioUrl == null) {
-        final apiEndpoint =
-            currentSegment.audioEndpoint ??
+        final apiEndpoint = currentSegment.audioEndpoint ??
             '/api/story-trails/segments/${currentSegment.id}/audio';
 
         final result = await getAudioForSegmentUseCase(
@@ -291,46 +291,55 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
           },
           (url) async {
             audioUrl = url;
-            // Cache it for later
             add(_AudioPreloaded(segmentId: currentSegment.id, audioUrl: url));
           },
         );
       }
 
-      // 2. If we have a URL, Load and Play
+      // B. Load & Play Audio
       if (audioUrl != null) {
         try {
-          // This awaits until the audio is ready to buffer/play
-          await _audioPlayer.setUrl(audioUrl!);
+          // setUrl returns the exact duration of the MP3
+          final duration = await _audioPlayer.setUrl(audioUrl!);
 
-          // Start playback
+          // Start playing
           _audioPlayer.play();
 
-          // STEP C: SYNC UI
-          // NOW we emit the state with the ID.
-          // The TypewriterText widget watches this and starts ONLY now.
-          emit(resetState.copyWith(playingSegmentId: currentSegment.id));
+          // C. SHOW TEXT & SYNC (Crucial Step)
+          // We assume 'loadingState' has the latest cache. 
+          // We now reveal the text by setting playingSegmentId.
+          emit(loadingState.copyWith(
+            playingSegmentId: currentSegment.id, // <--- Shows text
+            currentAudioDuration: duration,      // <--- Syncs speed
+            // Ensure cache is preserved if it was updated during fetch
+            audioCache: audioUrl != null 
+                ? {...loadingState.audioCache, currentSegment.id: audioUrl!} 
+                : loadingState.audioCache,
+          ));
         } catch (e) {
           print("Audio playback error: $e");
+          // Fallback: Show text even if audio fails
+          emit(loadingState.copyWith(playingSegmentId: currentSegment.id));
         }
       } else {
-        // Fallback: If no audio, just show text immediately
-        emit(resetState.copyWith(playingSegmentId: currentSegment.id));
+        // Fallback: No URL found, show text immediately
+        emit(loadingState.copyWith(playingSegmentId: currentSegment.id));
       }
     } else {
-      // If it's a Challenge (no audio), show text immediately
-      emit(resetState.copyWith(playingSegmentId: currentSegment.id));
+      // 4. HANDLE CHALLENGE (No Audio)
+      // Just show the text immediately
+      emit(loadingState.copyWith(playingSegmentId: currentSegment.id));
     }
 
-    // STEP D: PRELOAD NEXT (Optimization)
+    // 5. PRELOAD NEXT (Optimization)
     final preloadIndex = progress.currentSegmentIndex + 1;
     if (preloadIndex < trail.segments.length) {
       final nextSegment = trail.segments[preloadIndex];
 
       if (nextSegment.type == SegmentType.narration &&
-          resetState.audioCache[nextSegment.id] == null) {
-        final nextEndpoint =
-            nextSegment.audioEndpoint ??
+          currentState.audioCache[nextSegment.id] == null) {
+        
+        final nextEndpoint = nextSegment.audioEndpoint ??
             '/api/story-trails/segments/${nextSegment.id}/audio';
 
         getAudioForSegmentUseCase(
@@ -338,8 +347,9 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
         ).then((result) {
           result.fold(
             (failure) => print("Preload failed: ${failure.message}"),
-            (url) =>
-                add(_AudioPreloaded(segmentId: nextSegment.id, audioUrl: url)),
+            (url) => add(
+              _AudioPreloaded(segmentId: nextSegment.id, audioUrl: url),
+            ),
           );
         });
       }

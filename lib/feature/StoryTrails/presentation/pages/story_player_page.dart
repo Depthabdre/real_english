@@ -315,24 +315,57 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
     Color textColor,
     bool isDark,
   ) {
-    // 1. WATCH THE STATE
-    final state = context.watch<StoryPlayerBloc>().state;
-    bool shouldStartTyping = false;
+    // 1. Get Data from State
+    Duration? audioDuration;
+    String? playingId;
 
+    final state = context.read<StoryPlayerBloc>().state;
     if (state is StoryPlayerDisplay) {
-      // Text starts only if the BLoC confirms this segment's audio is playing
-      shouldStartTyping = state.playingSegmentId == segment.id;
+      audioDuration = state.currentAudioDuration;
+      playingId = state.playingSegmentId;
+    }
+
+    // 2. Logic: Should we start typing?
+    // If the BLoC hasn't emitted the ID yet (still loading audio), show nothing.
+    if (playingId != segment.id) {
+      return SizedBox(
+        height: 100,
+        child: Center(
+          // Optional: Tiny loading indicator while buffering audio
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: textColor.withValues(alpha: 0.3),
+          ),
+        ),
+      );
+    }
+
+    // 3. Calculate Dynamic Speed
+    // Default: 50ms (Generic reading speed)
+    Duration typingSpeed = const Duration(milliseconds: 50);
+
+    if (audioDuration != null && segment.textContent.isNotEmpty) {
+      // Logic: If audio is 10s (10000ms) and text is 100 chars
+      // Speed = 100ms per char.
+      // We subtract a tiny buffer (500ms) so text finishes slightly before audio cuts.
+      final safeDurationMs = (audioDuration.inMilliseconds - 500).clamp(
+        1000,
+        999999,
+      );
+      final msPerChar = safeDurationMs / segment.textContent.length;
+      typingSpeed = Duration(milliseconds: msPerChar.round());
     }
 
     return Column(
       key: ValueKey(segment.id),
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 2. Typewriter Text
+        // Typewriter Text
         SizedBox(
           width: double.infinity,
           child: TypewriterText(
-            key: ValueKey(segment.id), // Important for resetting
+            // The key forces a rebuild if the speed changes (e.g. audio loads late)
+            key: ValueKey("${segment.id}_${typingSpeed.inMilliseconds}"),
             text: segment.textContent,
             style: TextStyle(
               fontFamily: 'Georgia',
@@ -340,15 +373,13 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
               height: 1.6,
               color: textColor,
             ),
-            typingSpeed: const Duration(milliseconds: 95),
-            // PASS THE FLAG HERE
-            shouldStart: shouldStartTyping,
+            typingSpeed: typingSpeed,
           ),
         ),
 
         const SizedBox(height: 32),
 
-        // 3. Player Controls
+        // Player Controls
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -363,26 +394,19 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
                 backgroundImage: NetworkImage(segment.imageUrl ?? ''),
                 backgroundColor: Colors.grey,
               ),
-
               const SizedBox(width: 16),
-
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // Replay Button
                     IconButton(
                       icon: const Icon(Icons.replay_10_rounded),
-                      tooltip: "Replay",
                       onPressed: () {
                         context.read<StoryPlayerBloc>().add(ReplayAudio());
                       },
                       color: isDark ? Colors.white70 : Colors.black54,
                     ),
-
                     const SizedBox(width: 8),
-
-                    // Next / Continue Button
                     Container(
                       decoration: const BoxDecoration(
                         color: Color(0xFF1976D2),
@@ -393,9 +417,7 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
                           Icons.arrow_forward_rounded,
                           color: Colors.white,
                         ),
-                        tooltip: "Next",
                         onPressed: () {
-                          // Manual Progression Only
                           context.read<StoryPlayerBloc>().add(
                             NarrationFinished(),
                           );
@@ -887,14 +909,12 @@ class TypewriterText extends StatefulWidget {
   final String text;
   final TextStyle style;
   final Duration typingSpeed;
-  final bool shouldStart; // Controlled by the BLoC
 
   const TypewriterText({
     super.key,
     required this.text,
     required this.style,
-    this.typingSpeed = const Duration(milliseconds: 50),
-    required this.shouldStart,
+    required this.typingSpeed,
   });
 
   @override
@@ -909,53 +929,36 @@ class _TypewriterTextState extends State<TypewriterText> {
   @override
   void initState() {
     super.initState();
-    // Only start if the flag is true initially (unlikely, but good practice)
-    if (widget.shouldStart) {
-      _startTypingSequence();
-    }
+    _startTyping();
   }
 
   @override
   void didUpdateWidget(TypewriterText oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // 1. If text content changed (New Segment), reset everything
-    if (oldWidget.text != widget.text) {
-      _reset();
-    }
-
-    // 2. Logic: Wait for signal to start
-    // If flag goes from False -> True, START typing
-    if (!oldWidget.shouldStart && widget.shouldStart) {
-      _startTypingSequence();
-    }
-
-    // 3. Logic: Handle Replay
-    // If flag goes from True -> False (Reset state), clear text
-    if (oldWidget.shouldStart && !widget.shouldStart) {
-      _reset();
+    // If text changes OR speed changes (e.g., audio metadata loaded), restart.
+    if (oldWidget.text != widget.text ||
+        oldWidget.typingSpeed != widget.typingSpeed) {
+      _startTyping();
     }
   }
 
-  void _reset() {
-    _timer?.cancel();
-    setState(() {
-      _displayedText = "";
-      _charIndex = 0;
-    });
-  }
-
-  void _startTypingSequence() {
+  void _startTyping() {
     _timer?.cancel();
     _charIndex = 0;
-    // Ensure we start empty
-    setState(() {
-      _displayedText = "";
-    });
+    _displayedText = "";
 
-    _timer = Timer.periodic(widget.typingSpeed, (timer) {
+    // Safety: Ensure speed is at least 10ms to prevent CPU freeze
+    final effectiveSpeed = widget.typingSpeed.inMilliseconds < 10
+        ? const Duration(milliseconds: 10)
+        : widget.typingSpeed;
+
+    _timer = Timer.periodic(effectiveSpeed, (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
       if (_charIndex < widget.text.length) {
-        if (!mounted) return;
         setState(() {
           _charIndex++;
           _displayedText = widget.text.substring(0, _charIndex);
@@ -974,7 +977,6 @@ class _TypewriterTextState extends State<TypewriterText> {
 
   @override
   Widget build(BuildContext context) {
-    // Align left for reading flow
     return Text(_displayedText, style: widget.style, textAlign: TextAlign.left);
   }
 }

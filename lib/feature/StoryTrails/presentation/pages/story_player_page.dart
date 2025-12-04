@@ -556,14 +556,13 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
   ) {
     return _buildCompletionCard(
       context,
-      icon: Icons.workspace_premium_rounded,
-      iconColor: Colors.amber,
-      title: "Chapter Complete",
-      subtitle: "Welcome to Level ${state.newLevel}",
-      buttonText: "Continue Journey",
-      // On press: Go back to list, which triggers next level generation logic
+      title: "Congratulations!",
+      // Shows the story title dynamically
+      subtitle: "You have completed: ${state.storyTitle}",
+      buttonText: "EMBARK ON THE NEXT JOURNEY",
       onPressed: () => context.go('/story-trails'),
       isDark: isDark,
+      xpEarned: 500, // Or state.xpEarned
     );
   }
 
@@ -574,13 +573,13 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
   ) {
     return _buildCompletionCard(
       context,
-      icon: Icons.auto_stories,
-      iconColor: Colors.blueAccent,
-      title: "Story Complete",
-      subtitle: "+${state.finalProgress.xpEarned} XP Gained",
-      buttonText: "Next Adventure",
+      title: "Congratulations!",
+      // Shows the story title dynamically
+      subtitle: "You have completed: ${state.storyTitle}",
+      buttonText: "EMBARK ON THE NEXT JOURNEY",
       onPressed: () => context.go('/story-trails'),
       isDark: isDark,
+      xpEarned: state.finalProgress.xpEarned,
     );
   }
 
@@ -589,192 +588,292 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
   // Replace the old _buildCompletionCard with this new one
   Widget _buildCompletionCard(
     BuildContext context, {
-    required IconData icon,
-    required Color iconColor,
     required String title,
     required String subtitle,
     required String buttonText,
     required VoidCallback onPressed,
     required bool isDark,
+    required int xpEarned,
   }) {
-    // 1. Theme-Aware Colors
-    final bgColor = isDark ? const Color(0xFF0B0E14) : const Color(0xFFF5F7FA);
-    final cardColor = isDark ? const Color(0xFF151B25) : Colors.white;
-    final textColor = isDark ? Colors.white : const Color(0xFF212121);
-    final subTextColor = isDark ? Colors.grey : const Color(0xFF757575);
-    final borderColor = isDark
-        ? iconColor.withValues(alpha: 0.3)
-        : Colors.grey.withValues(alpha: 0.2);
-    final shadowColor = isDark
-        ? iconColor.withValues(alpha: 0.1)
-        : Colors.black.withValues(alpha: 0.05);
+    // --- 1. THEME-AWARE COLOR PALETTE ---
+
+    // Background: Deep Space (Dark) vs Soft Mist (Light)
+    final bgColor = isDark ? const Color(0xFF050810) : const Color(0xFFF0F4F8);
+
+    // Card: Deep Navy (Dark) vs Pure White (Light)
+    final cardColor = isDark ? const Color(0xFF0F1623) : Colors.white;
+
+    // Text: White vs Dark Blue-Grey
+    final textColor = isDark
+        ? Colors.white
+        : const Color(0xFF1A237E); // Deep Blue text for Light mode
+    final subTextColor = isDark
+        ? const Color(0xFF90A4AE)
+        : const Color(0xFF546E7A);
+    final dividerColor = isDark ? Colors.white12 : Colors.black12;
+
+    // --- 2. UNIFIED EFFECTS (NEON LOOK FOR BOTH) ---
+    final glowColor = const Color(0xFF64B5F6); // Bright Blue
+    final accentCyan = const Color(0xFF80DEEA); // Cyan
+
+    // Border: Visible in both modes
+    final cardBorder = Border.all(
+      color: glowColor.withValues(alpha: isDark ? 0.3 : 0.4),
+      width: 1.5,
+    );
+
+    // Shadow: Colored Glow in BOTH modes (No black shadows)
+    final cardShadow = BoxShadow(
+      color: glowColor.withValues(
+        alpha: isDark ? 0.15 : 0.25,
+      ), // Stronger alpha in light mode to be visible
+      blurRadius: 40,
+      spreadRadius: 2,
+      offset: const Offset(0, 0), // Centered glow
+    );
+
+    // Ambience Gradient (Background)
+    final ambientGradient = RadialGradient(
+      center: Alignment.center,
+      radius: 1.0,
+      colors: isDark
+          ? [
+              const Color(0xFF1A237E).withValues(alpha: 0.15),
+              Colors.transparent,
+            ]
+          : [
+              const Color(0xFF4FC3F7).withValues(alpha: 0.15),
+              Colors.transparent,
+            ], // Light Blue glow
+    );
+
+    // Text Styles
+    final headerStyle = TextStyle(
+      fontFamily: 'Georgia',
+      fontSize: 28,
+      fontWeight: FontWeight.bold,
+      color: textColor,
+      letterSpacing: 0.5,
+      // Subtle text glow
+      shadows: [
+        Shadow(color: glowColor.withValues(alpha: 0.3), blurRadius: 15),
+      ],
+    );
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: Center(
-        child: Container(
-          width: double.infinity,
-          margin: const EdgeInsets.all(24),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: borderColor, width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 40,
-                spreadRadius: 5,
-                offset: const Offset(0, 10),
-              ),
-            ],
+      body: Stack(
+        children: [
+          // Background Ambience (Now visible in BOTH modes)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(gradient: ambientGradient),
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 1. Header
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                  fontFamily: 'Georgia', // Matches the serif look in image
-                  letterSpacing: 0.5,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: TextStyle(fontSize: 15, color: subTextColor),
-                textAlign: TextAlign.center,
-              ),
 
-              const SizedBox(height: 40),
-
-              // 2. The Stats Row (Circle + Bars)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+          Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+              decoration: BoxDecoration(
+                color: cardColor.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(36),
+                border: cardBorder, // Glowing border
+                boxShadow: [cardShadow], // Glowing shadow
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Circular Progress
-                  SizedBox(
-                    width: 120,
-                    height: 120,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox(
-                          width: 120,
-                          height: 120,
-                          child: CircularProgressIndicator(
-                            value: 0.85, // 85%
-                            strokeWidth: 8,
-                            backgroundColor: isDark
-                                ? Colors.white10
-                                : Colors.grey[200],
-                            color: iconColor,
-                            strokeCap: StrokeCap.round,
-                          ),
-                        ),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
+                  // --- HEADER ---
+                  Text(title, style: headerStyle, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 15,
+                      color: subTextColor,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 30),
+                  Divider(color: dividerColor, thickness: 1),
+                  const SizedBox(height: 30),
+
+                  // --- ICONS & STATS ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Column
+                      Expanded(
+                        child: Column(
                           children: [
-                            Text(
-                              "85%",
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: textColor,
-                                fontFamily: 'Georgia',
-                              ),
+                            // Shared helper for Gradient Icons
+                            _buildGradientIcon(
+                              Icons.verified_user_outlined,
+                              accentCyan,
+                              glowColor,
+                              true, // Always force "glow" effect on icons
                             ),
+                            const SizedBox(height: 16),
                             Text(
-                              "Mastered",
+                              "Story Mastered",
                               style: TextStyle(
-                                fontSize: 10,
-                                color: subTextColor,
+                                color: textColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(width: 30),
-
-                  // Bar Chart Simulation
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          _buildBar(
-                            height: 30,
-                            color: iconColor.withValues(alpha: 0.5),
-                            label: "57%",
-                            textColor: subTextColor,
-                          ),
-                          const SizedBox(width: 8),
-                          _buildBar(
-                            height: 50,
-                            color: iconColor.withValues(alpha: 0.8),
-                            label: "56%",
-                            textColor: subTextColor,
-                          ),
-                          const SizedBox(width: 8),
-                          _buildBar(
-                            height: 70,
-                            color: iconColor,
-                            label: "36%",
-                            textColor: textColor,
-                          ), // Highlight
-                        ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "Performance",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: subTextColor,
-                          fontWeight: FontWeight.w600,
+
+                      // Right Column
+                      Expanded(
+                        child: Column(
+                          children: [
+                            _buildGradientIcon(
+                              Icons.auto_graph_rounded,
+                              accentCyan,
+                              glowColor,
+                              true,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              "New Lore Unlocked",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "+$xpEarned XP",
+                              style: TextStyle(
+                                color: subTextColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 30),
+                  Divider(color: dividerColor, thickness: 1),
+                  const SizedBox(height: 24),
+
+                  // --- FOOTER QUOTE ---
+                  Text(
+                    "Every journey completed strengthens your command of language and expands your unique saga.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: subTextColor,
+                      fontStyle: FontStyle.italic,
+                      height: 1.5,
+                      fontFamily: 'Georgia',
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
+
+                  // --- GRADIENT BUTTON ---
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(28),
+                        gradient: LinearGradient(
+                          colors: [accentCyan, glowColor],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: glowColor.withValues(alpha: 0.4),
+                            blurRadius: 20,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: onPressed,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                        ),
+                        child: Text(
+                          buttonText.toUpperCase(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                            letterSpacing: 0.5,
+                            color: Color(
+                              0xFF0D1B2A,
+                            ), // Dark text on bright button
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-
-              const SizedBox(height: 50),
-
-              // 3. Button
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: onPressed,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: iconColor,
-                    foregroundColor: isDark ? Colors.black : Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(27),
-                    ),
-                  ),
-                  child: Text(
-                    buttonText.toUpperCase(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // --- Helper for "Glowing" Icons ---
+  Widget _buildGradientIcon(
+    IconData icon,
+    Color color1,
+    Color color2,
+    bool isDark,
+  ) {
+    return ShaderMask(
+      shaderCallback: (Rect bounds) {
+        return LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [color1, color2],
+        ).createShader(bounds);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          // Only show the "back glow" in dark mode for that neon effect
+          // In light mode, keep it clean.
+          boxShadow: isDark
+              ? [
+                  BoxShadow(
+                    color: color2.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
+                ]
+              : [],
+        ),
+        child: Icon(
+          icon,
+          size: 56, // Size from image
+          color: Colors.white, // Required for ShaderMask to work
         ),
       ),
     );
@@ -782,28 +881,6 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
 }
 
 // Helper for the bar chart bars
-Widget _buildBar({
-  required double height,
-  required Color color,
-  required String label,
-  required Color textColor,
-}) {
-  return Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(label, style: TextStyle(fontSize: 10, color: textColor)),
-      const SizedBox(height: 4),
-      Container(
-        width: 12,
-        height: height,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(4),
-        ),
-      ),
-    ],
-  );
-}
 
 // --- 3. The Typewriter Widget (Helper) ---
 class TypewriterText extends StatefulWidget {

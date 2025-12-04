@@ -72,16 +72,28 @@ class AnswerFeedback extends StoryPlayerState {
 
 class StoryPlayerFinished extends StoryPlayerState {
   final StoryProgress finalProgress;
-  const StoryPlayerFinished({required this.finalProgress});
+  final String storyTitle; // <--- Added for consistency
+
+  const StoryPlayerFinished({
+    required this.finalProgress,
+    required this.storyTitle, // <--- Added
+  });
+
   @override
-  List<Object> get props => [finalProgress];
+  List<Object> get props => [finalProgress, storyTitle];
 }
 
 class LevelCompleted extends StoryPlayerState {
   final int newLevel;
-  const LevelCompleted({required this.newLevel});
+  final String storyTitle; // <--- Added
+
+  const LevelCompleted({
+    required this.newLevel,
+    required this.storyTitle, // <--- Added
+  });
+
   @override
-  List<Object> get props => [newLevel];
+  List<Object> get props => [newLevel, storyTitle];
 }
 
 class StoryPlayerError extends StoryPlayerState {

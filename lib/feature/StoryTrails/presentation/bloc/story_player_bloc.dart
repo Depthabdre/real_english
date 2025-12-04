@@ -189,20 +189,35 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     final nextIndex = currentProgress.currentSegmentIndex + 1;
 
     if (nextIndex >= trail.segments.length) {
+      // 1. Mark Complete in Backend
       final result = await markStoryTrailCompletedUseCase(
         MarkStoryTrailCompletedParams(trailId: trail.id),
       );
+
       result.fold(
         (failure) => emit(StoryPlayerError(failure.message, trail.id)),
         (status) {
           if (status.didLevelUp) {
-            emit(LevelCompleted(newLevel: status.newLevel));
+            // 2. Emit LevelCompleted with Title
+            emit(
+              LevelCompleted(
+                newLevel: status.newLevel,
+                storyTitle: trail.title, // <--- Pass the title here
+              ),
+            );
           } else {
-            emit(StoryPlayerFinished(finalProgress: currentProgress));
+            // 3. Emit Finished with Title
+            emit(
+              StoryPlayerFinished(
+                finalProgress: currentProgress,
+                storyTitle: trail.title, // <--- Pass the title here
+              ),
+            );
           }
         },
       );
     } else {
+      // ... (Rest of the logic for saving progress remains the same)
       final newProgress = (currentProgress as StoryProgressModel).copyWith(
         currentSegmentIndex: nextIndex,
       );
@@ -240,13 +255,13 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     StoryProgress progress,
   ) async {
     if (state is! StoryPlayerDisplay) return;
-    
+
     // We create a fresh instance to ensure clean state transitions
     final currentState = state as StoryPlayerDisplay;
     final currentSegment = trail.segments[progress.currentSegmentIndex];
 
     // STEP A: RESET UI
-    // We emit a state with playingSegmentId = null. 
+    // We emit a state with playingSegmentId = null.
     // This tells the UI to clear the text immediately while we load audio.
     final resetState = StoryPlayerDisplay(
       storyTrail: currentState.storyTrail,
@@ -262,7 +277,8 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
 
       // 1. If URL not in cache, fetch it
       if (audioUrl == null) {
-        final apiEndpoint = currentSegment.audioEndpoint ??
+        final apiEndpoint =
+            currentSegment.audioEndpoint ??
             '/api/story-trails/segments/${currentSegment.id}/audio';
 
         final result = await getAudioForSegmentUseCase(
@@ -286,15 +302,14 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
         try {
           // This awaits until the audio is ready to buffer/play
           await _audioPlayer.setUrl(audioUrl!);
-          
+
           // Start playback
           _audioPlayer.play();
 
           // STEP C: SYNC UI
-          // NOW we emit the state with the ID. 
+          // NOW we emit the state with the ID.
           // The TypewriterText widget watches this and starts ONLY now.
           emit(resetState.copyWith(playingSegmentId: currentSegment.id));
-          
         } catch (e) {
           print("Audio playback error: $e");
         }
@@ -314,8 +329,8 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
 
       if (nextSegment.type == SegmentType.narration &&
           resetState.audioCache[nextSegment.id] == null) {
-        
-        final nextEndpoint = nextSegment.audioEndpoint ??
+        final nextEndpoint =
+            nextSegment.audioEndpoint ??
             '/api/story-trails/segments/${nextSegment.id}/audio';
 
         getAudioForSegmentUseCase(
@@ -323,9 +338,8 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
         ).then((result) {
           result.fold(
             (failure) => print("Preload failed: ${failure.message}"),
-            (url) => add(
-              _AudioPreloaded(segmentId: nextSegment.id, audioUrl: url),
-            ),
+            (url) =>
+                add(_AudioPreloaded(segmentId: nextSegment.id, audioUrl: url)),
           );
         });
       }

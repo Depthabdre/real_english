@@ -45,7 +45,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
   // Base URL for your backend API, configured for the Android Emulator.
   //10.68.82.123
-  final String _baseUrl = "http://10.203.204.123:3000/api/auth";
+  final String _baseUrl = "http://10.161.141.123:3000/api/auth";
 
   AuthRemoteDatasourceImpl({
     required this.client,

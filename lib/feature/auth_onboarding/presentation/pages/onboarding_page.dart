@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart'; // 1. IMPORT GO_ROUTER
 import 'package:real_english/app/app_router.dart';
-
-// Import the service locator to access dependencies like SharedPreferences
 import '../../../../app/injection_container.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -15,7 +14,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  // The content for the onboarding screens remains the same.
   final List<Widget> _onboardingScreens = [
     const _OnboardingContent(
       icon: Icons.school_rounded,
@@ -24,10 +22,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
           "Your fun and personal journey to mastering English starts here.",
     ),
     const _OnboardingContent(
-      icon: Icons.park_rounded, // A friendly, natural icon
+      icon: Icons.park_rounded,
       title: "Learn Without Realizing It",
       description:
-          "Participate in daily stories and challenges that feel like a game. Master English in context, just like you learned your first language.",
+          "Participate in daily stories and challenges that feel like a game. Master English in context.",
     ),
     const _OnboardingContent(
       icon: Icons.mic_rounded,
@@ -37,14 +35,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
   ];
 
-  /// Finishes the onboarding flow.
+  /// --- UPDATED FUNCTION ---
   void _finishOnboarding() async {
-    // Get the singleton instance of our AppRouter from the service locator
+    // 1. Get the AppRouter
     final appRouter = sl<AppRouter>();
 
-    // Call the method that handles updating both storage and the live state notifier.
-    // This will automatically trigger the router's redirect logic.
+    // 2. Update the state (Save to Prefs + Update Listener)
     await appRouter.setOnboardingComplete();
+
+    // 3. EXPLICITLY NAVIGATE
+    // Since the Redirect logic might allow you to stay on /onboarding
+    // (to prevent loops), we must force the navigation here.
+    if (mounted) {
+      context.go('/signin');
+    }
   }
 
   @override
@@ -74,22 +78,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  /// Builds the bottom controls (Skip/Next buttons and page indicators).
   Widget _buildBottomControls() {
     final isLastPage = _currentPage == _onboardingScreens.length - 1;
-    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Show a placeholder on the last page to keep the indicators centered
           isLastPage
               ? const SizedBox(width: 80)
               : _buildTextButton("Skip", _finishOnboarding),
 
-          // Page indicators
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
@@ -98,11 +98,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
           ),
 
-          // Show "Get Started" on the last page, otherwise "Next"
           isLastPage
               ? ElevatedButton(
                   onPressed: _finishOnboarding,
-                  // UPDATED: Style is now consistent with other auth pages.
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -162,7 +160,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 }
 
-/// A reusable widget for the content displayed on each onboarding screen.
 class _OnboardingContent extends StatelessWidget {
   final IconData icon;
   final String title;

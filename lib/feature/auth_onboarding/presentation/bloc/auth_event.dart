@@ -7,6 +7,7 @@ abstract class AuthEvent extends Equatable {
   List<Object> get props => [];
 }
 
+// Triggered by Splash Screen
 class AppStarted extends AuthEvent {}
 
 class SignUpRequested extends AuthEvent {

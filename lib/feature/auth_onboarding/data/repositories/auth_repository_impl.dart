@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:real_english/core/network/network_info.dart';
 import '../../../../core/errors/exception.dart'; // You will need to create this file
 import '../../../../core/errors/failures.dart';
 import '../../domain/entities/otp.dart';
@@ -12,11 +13,13 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDatasource remoteDatasource;
   final AuthLocalDatasource localDatasource;
   final GoogleSignIn googleSignInInstance;
+  final NetworkInfo networkInfo; // <--- Add this
 
   AuthRepositoryImpl({
     required this.remoteDatasource,
     required this.localDatasource,
     required this.googleSignInInstance,
+    required this.networkInfo, // <--- Add this
   });
 
   @override
@@ -121,9 +124,58 @@ class AuthRepositoryImpl implements AuthRepository {
 
   // --- UNIMPLEMENTED METHODS ---
   @override
-  Future<Either<Failures, User>> getMe() {
-    // TODO: implement getMe
-    throw UnimplementedError();
+  Future<Either<Failures, User>> getMe() async {
+    // 1. Check if token exists locally. If not, user is definitely logged out.
+    try {
+      final token = await localDatasource.getToken();
+      if (token == null) {
+        return Left(CacheFailure(message: "No active session found."));
+      }
+    } catch (e) {
+      return Left(CacheFailure(message: "Error reading local storage."));
+    }
+
+    // 2. Check Internet Connection explicitly
+    if (await networkInfo.isConnected) {
+      // --- ONLINE LOGIC ---
+      try {
+        // Try to get fresh data from server
+        final remoteUser = await remoteDatasource.getMe();
+
+        // Save fresh data to local cache for future offline use
+        await localDatasource.cacheUser(remoteUser);
+
+        return Right(remoteUser);
+      } on ServerException catch (e) {
+        // If the server explicitly rejects us (e.g. 401 Unauthorized),
+        // we generally should NOT return the local user, because the token is invalid.
+        return Left(ServerFailure(message: e.message));
+      } catch (e) {
+        // If there was a timeout or unexpected error despite being "Connected",
+        // we treat this as a connectivity issue and try the fallback.
+        return await _getLocalUserFallback();
+      }
+    } else {
+      // --- OFFLINE LOGIC ---
+      // No internet? Immediately try fallback without waiting for a request timeout.
+      return await _getLocalUserFallback();
+    }
+  }
+
+  Future<Either<Failures, User>> _getLocalUserFallback() async {
+    try {
+      final localUser = await localDatasource.getLastUser();
+
+      if (localUser != null) {
+        return Right(localUser);
+      } else {
+        return Left(
+          NetworkFailure(message: "No internet connection and no cached data."),
+        );
+      }
+    } catch (e) {
+      return Left(CacheFailure(message: "Failed to load local data."));
+    }
   }
 
   // --- GOOGLE SIGN-IN IMPLEMENTATION (CORRECTED) ---
@@ -136,8 +188,7 @@ class AuthRepositoryImpl implements AuthRepository {
           .authenticate();
 
       // Step 2: Get the authentication tokens.
-      final GoogleSignInAuthentication googleAuth =
-          googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
       final String? idToken = googleAuth.idToken;
 
       if (idToken == null) {
@@ -153,9 +204,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(ServerFailure(message: e.message));
     } on GoogleSignInException catch (e) {
       print('Google Sign-In Error: ${e.toString()}');
-      return Left(
-        ServerFailure(message: 'Google Sign-In Error'),
-      );
+      return Left(ServerFailure(message: 'Google Sign-In Error'));
     } catch (e) {
       return Left(
         ServerFailure(message: 'An unexpected error occurred: ${e.toString()}'),

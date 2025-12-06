@@ -1,45 +1,65 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-// --- ABSTRACT CLASS DEFINITION (SIMPLIFIED) ---
-// The contract is updated to handle a single token for simplicity and clarity.
+import '../../domain/entities/user.dart'; // Import your User entity
+import '../models/user_model.dart'; // Import your UserModel
 
 abstract class AuthLocalDatasource {
-  /// Caches the given access token securely.
   Future<void> cacheToken(String token);
-
-  /// Retrieves the cached access token.
-  /// Returns `null` if no token is found.
   Future<String?> getToken();
-
-  /// Clears the cached access token.
   Future<void> clearToken();
-}
 
-// --- IMPLEMENTATION (SIMPLIFIED) ---
+  // --- NEW METHODS ---
+  Future<void> cacheUser(UserModel user);
+  Future<UserModel?> getLastUser();
+  Future<void> clearUser();
+}
 
 class AuthLocalDatasourceImpl implements AuthLocalDatasource {
   final FlutterSecureStorage secureStorage;
 
-  // We only need one key now.
   static const String accessTokenKey = 'ACCESS_TOKEN';
+  static const String userDataKey = 'USER_DATA'; // New key for user JSON
 
   AuthLocalDatasourceImpl({required this.secureStorage});
 
   @override
   Future<void> cacheToken(String token) async {
-    // Writes a single access token to secure storage.
     await secureStorage.write(key: accessTokenKey, value: token);
   }
 
   @override
   Future<String?> getToken() async {
-    // Reads the single access token from secure storage.
     return await secureStorage.read(key: accessTokenKey);
   }
 
   @override
   Future<void> clearToken() async {
-    // Deletes the single access token from secure storage.
     await secureStorage.delete(key: accessTokenKey);
+  }
+
+  // --- NEW IMPLEMENTATION ---
+
+  @override
+  Future<void> cacheUser(UserModel user) async {
+    final String userJson = json.encode(user.toJson());
+    await secureStorage.write(key: userDataKey, value: userJson);
+  }
+
+  @override
+  Future<UserModel?> getLastUser() async {
+    final String? userJson = await secureStorage.read(key: userDataKey);
+    if (userJson != null) {
+      try {
+        return UserModel.fromJson(json.decode(userJson));
+      } catch (e) {
+        return null; // Handle corrupted data
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<void> clearUser() async {
+    await secureStorage.delete(key: userDataKey);
   }
 }

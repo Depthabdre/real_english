@@ -3,7 +3,6 @@ import 'dart:ui'; // For ImageFilter
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:just_audio/just_audio.dart';
 
 import '../../../../app/injection_container.dart';
 import '../../domain/entities/single_choice_challenge.dart';
@@ -914,7 +913,8 @@ class TypewriterText extends StatefulWidget {
     super.key,
     required this.text,
     required this.style,
-    required this.typingSpeed,
+    // Default to a safe reading speed (30ms per char)
+    this.typingSpeed = const Duration(milliseconds: 30),
   });
 
   @override
@@ -935,24 +935,25 @@ class _TypewriterTextState extends State<TypewriterText> {
   @override
   void didUpdateWidget(TypewriterText oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If text changes OR speed changes (e.g., audio metadata loaded), restart.
-    if (oldWidget.text != widget.text ||
-        oldWidget.typingSpeed != widget.typingSpeed) {
+    if (oldWidget.text != widget.text) {
       _startTyping();
     }
   }
 
   void _startTyping() {
     _timer?.cancel();
-    _charIndex = 0;
-    _displayedText = "";
 
-    // Safety: Ensure speed is at least 10ms to prevent CPU freeze
-    final effectiveSpeed = widget.typingSpeed.inMilliseconds < 10
-        ? const Duration(milliseconds: 10)
-        : widget.typingSpeed;
+    // FIX 1: Show first char immediately if possible
+    if (widget.text.isEmpty) {
+      _displayedText = "";
+      _charIndex = 0;
+      return;
+    }
 
-    _timer = Timer.periodic(effectiveSpeed, (timer) {
+    _displayedText = widget.text.substring(0, 1);
+    _charIndex = 1;
+
+    _timer = Timer.periodic(widget.typingSpeed, (timer) {
       if (!mounted) {
         timer.cancel();
         return;
@@ -977,6 +978,7 @@ class _TypewriterTextState extends State<TypewriterText> {
 
   @override
   Widget build(BuildContext context) {
+    // FIX 2: Align left to prevent text jumping while typing
     return Text(_displayedText, style: widget.style, textAlign: TextAlign.left);
   }
 }

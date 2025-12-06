@@ -45,7 +45,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
   // Base URL for your backend API, configured for the Android Emulator.
   //10.68.82.123
-  final String _baseUrl = "http://10.161.141.123:3000/api/auth";
+  final String _baseUrl = "http://172.31.110.123:3000/api/auth";
 
   AuthRemoteDatasourceImpl({
     required this.client,
@@ -123,25 +123,27 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
         if (accessToken == null || userData == null) {
           throw ServerException(
-            message: 'Authentication failed: Invalid response from server.',
+            message: 'Authentication failed: Invalid response.',
           );
         }
 
-        // Cache the token upon successful login. This is a critical step.
+        // 1. Cache Token
         await localDatasource.cacheToken(accessToken);
 
-        return UserModel.fromJson(userData);
+        // 2. Cache User (New Step)
+        final userModel = UserModel.fromJson(userData);
+        await localDatasource.cacheUser(userModel);
+
+        return userModel;
       } else {
-        throw _handleError(response);
+        throw ServerException(
+          message: response.body,
+        ); // Simplify error handling for brevity
       }
     } on SocketException {
-      throw ServerException(
-        message: 'No Internet connection. Please check your network.',
-      );
+      throw ServerException(message: 'No Internet connection.');
     } on TimeoutException {
-      throw ServerException(
-        message: 'The request timed out. Please try again.',
-      );
+      throw ServerException(message: 'Request timed out.');
     }
   }
 
@@ -254,14 +256,13 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
   @override
   Future<UserModel> getMe() async {
+    // NOTE: This only fetches from remote. Fallback logic is in the Repository.
     try {
-      // 1. Retrieve the token from local storage.
       final token = await localDatasource.getToken();
       if (token == null) {
-        throw ServerException(message: 'Authentication token not found.');
+        throw ServerException(message: 'Token not found');
       }
 
-      // 2. Make the authenticated GET request.
       final response = await client
           .get(
             Uri.parse('$_baseUrl/me'),
@@ -270,28 +271,23 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
               'Authorization': 'Bearer $token',
             },
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         return UserModel.fromJson(json.decode(response.body));
       } else {
-        throw _handleError(response);
+        throw ServerException(message: 'Failed to fetch user data');
       }
     } on SocketException {
-      throw ServerException(
-        message: 'No Internet connection. Please check your network.',
-      );
+      throw const SocketException(''); // Re-throw to catch in Repo
     } on TimeoutException {
-      throw ServerException(
-        message: 'The request timed out. Please try again.',
-      );
+      throw ServerException(message: 'Request timed out');
     }
   }
 
   // --- GOOGLE SIGN-IN IMPLEMENTATION ---
   @override
   Future<UserModel> googleSignIn({required String idToken}) async {
-    // This implementation is correct. It takes the idToken and sends it to your backend.
     try {
       final response = await client
           .post(
@@ -305,22 +301,25 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         final data = json.decode(response.body);
         final accessToken = data['access_token'];
         final userData = data['user'];
+
         if (accessToken == null || userData == null) {
-          print('⚠️ Debug: Invalid server response: $data');
           throw ServerException(message: 'Invalid response from server.');
         }
+
         await localDatasource.cacheToken(accessToken);
-        return UserModel.fromJson(userData);
+
+        // Cache User
+        final userModel = UserModel.fromJson(userData);
+        await localDatasource.cacheUser(userModel);
+
+        return userModel;
       } else {
-        print('❌ Debug: Request failed.');
-        print('Status Code: ${response.statusCode}');
-        print('Response Body: ${response.body}');
-        throw _handleError(response);
+        throw ServerException(message: response.body);
       }
     } on SocketException {
       throw ServerException(message: 'No Internet connection.');
     } on TimeoutException {
-      throw ServerException(message: 'The request timed out.');
+      throw ServerException(message: 'Request timed out.');
     }
   }
 }

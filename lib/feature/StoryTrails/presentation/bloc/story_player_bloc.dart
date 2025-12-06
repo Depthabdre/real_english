@@ -68,6 +68,8 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     Emitter<StoryPlayerState> emit,
   ) async {
     emit(StoryPlayerLoading());
+
+    // 1. Fetch Data
     final trailResult = await getStoryTrailByIdUseCase(
       GetStoryTrailByIdParams(trailId: event.trailId),
     );
@@ -78,10 +80,17 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
         final progressResult = await getUserStoryProgressUseCase(
           GetUserStoryProgressParams(trailId: event.trailId),
         );
-        progressResult.fold(
-          (failure) => emit(StoryPlayerError(failure.message, event.trailId)),
+
+        await progressResult.fold(
+          (failure) async =>
+              emit(StoryPlayerError(failure.message, event.trailId)),
           (progress) async {
+            // --- THE FIX IS HERE ---
+
+            // 1. Show the UI IMMEDIATELY (Text + Image)
             emit(StoryPlayerDisplay(storyTrail: trail, progress: progress));
+
+            // 2. THEN start fetching/playing audio in the background
             await _playSegmentAndPreloadNext(emit, trail, progress);
           },
         );
@@ -264,7 +273,7 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     final currentSegment = trail.segments[progress.currentSegmentIndex];
 
     // 2. RESET UI (Hide Text)
-    // We emit a state with playingSegmentId = null. 
+    // We emit a state with playingSegmentId = null.
     // The UI will show an empty text box or loading spinner while we buffer audio.
     final loadingState = currentState.copyWith(
       playingSegmentId: null, // <--- Hides text
@@ -278,7 +287,8 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
 
       // A. Fetch URL if missing
       if (audioUrl == null) {
-        final apiEndpoint = currentSegment.audioEndpoint ??
+        final apiEndpoint =
+            currentSegment.audioEndpoint ??
             '/api/story-trails/segments/${currentSegment.id}/audio';
 
         final result = await getAudioForSegmentUseCase(
@@ -306,16 +316,18 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
           _audioPlayer.play();
 
           // C. SHOW TEXT & SYNC (Crucial Step)
-          // We assume 'loadingState' has the latest cache. 
+          // We assume 'loadingState' has the latest cache.
           // We now reveal the text by setting playingSegmentId.
-          emit(loadingState.copyWith(
-            playingSegmentId: currentSegment.id, // <--- Shows text
-            currentAudioDuration: duration,      // <--- Syncs speed
-            // Ensure cache is preserved if it was updated during fetch
-            audioCache: audioUrl != null 
-                ? {...loadingState.audioCache, currentSegment.id: audioUrl!} 
-                : loadingState.audioCache,
-          ));
+          emit(
+            loadingState.copyWith(
+              playingSegmentId: currentSegment.id, // <--- Shows text
+              currentAudioDuration: duration, // <--- Syncs speed
+              // Ensure cache is preserved if it was updated during fetch
+              audioCache: audioUrl != null
+                  ? {...loadingState.audioCache, currentSegment.id: audioUrl!}
+                  : loadingState.audioCache,
+            ),
+          );
         } catch (e) {
           print("Audio playback error: $e");
           // Fallback: Show text even if audio fails
@@ -338,8 +350,8 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
 
       if (nextSegment.type == SegmentType.narration &&
           currentState.audioCache[nextSegment.id] == null) {
-        
-        final nextEndpoint = nextSegment.audioEndpoint ??
+        final nextEndpoint =
+            nextSegment.audioEndpoint ??
             '/api/story-trails/segments/${nextSegment.id}/audio';
 
         getAudioForSegmentUseCase(
@@ -347,9 +359,8 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
         ).then((result) {
           result.fold(
             (failure) => print("Preload failed: ${failure.message}"),
-            (url) => add(
-              _AudioPreloaded(segmentId: nextSegment.id, audioUrl: url),
-            ),
+            (url) =>
+                add(_AudioPreloaded(segmentId: nextSegment.id, audioUrl: url)),
           );
         });
       }

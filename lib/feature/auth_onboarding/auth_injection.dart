@@ -27,7 +27,8 @@ Future<void> initAuthFeature() async {
   // All these 'sl.register...' calls now refer to the single, global 'sl' instance.
 
   // --- Presentation Layer ---
-  sl.registerFactory(
+  // This ensures the AppRouter and the UI listen to the SAME Bloc.
+  sl.registerLazySingleton(
     () => AuthBloc(
       signInUseCase: sl(),
       signUpUseCase: sl(),
@@ -58,6 +59,7 @@ Future<void> initAuthFeature() async {
       remoteDatasource: sl(),
       localDatasource: sl(),
       googleSignInInstance: sl(), // Inject GoogleSignIn here as well),
+      networkInfo: sl(),
     ),
   );
 

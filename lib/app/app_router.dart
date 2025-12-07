@@ -140,7 +140,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// --- Main App Shell (UNCHANGED) ---
+// --- Main App Shell  ---
 class MainAppShell extends StatelessWidget {
   final Widget child;
   const MainAppShell({super.key, required this.child});

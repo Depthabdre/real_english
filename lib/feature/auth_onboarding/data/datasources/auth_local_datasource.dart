@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../domain/entities/user.dart'; // Import your User entity
+// Import your User entity
 import '../models/user_model.dart'; // Import your UserModel
 
 abstract class AuthLocalDatasource {

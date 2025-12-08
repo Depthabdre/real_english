@@ -3,6 +3,7 @@ import 'dart:ui'; // For ImageFilter
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:real_english/feature/StoryTrails/presentation/widgets/robust_story_image.dart';
 
 import '../../../../app/injection_container.dart';
 import '../../domain/entities/single_choice_challenge.dart';
@@ -195,18 +196,16 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
           top: 0,
           left: 0,
           right: 0,
-          height: MediaQuery.of(context).size.height * 0.60, // Takes top 60%
+          height: MediaQuery.of(context).size.height * 0.60,
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 800),
-            child: Image.network(
-              key: ValueKey(segment.imageUrl),
-              segment.imageUrl ?? '',
+            // USE THE NEW WIDGET HERE
+            child: RobustStoryImage(
+              key: ValueKey(
+                segment.imageUrl,
+              ), // Important for switching segments
+              imageUrl: segment.imageUrl ?? '',
               fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              loadingBuilder: (_, child, p) =>
-                  p == null ? child : Container(color: Colors.black12),
-              errorBuilder: (_, __, ___) => Container(color: Colors.grey[900]),
             ),
           ),
         ),

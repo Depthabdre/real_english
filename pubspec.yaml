@@ -49,6 +49,7 @@ dependencies:
   internet_connection_checker_plus: ^2.2.0
   flutter_tts: ^3.8.5 # For Text-to-Speech
   just_audio: ^0.9.36 # For playing sound effects
+  youtube_player_flutter: ^9.1.3
 
 dev_dependencies:
   flutter_test:

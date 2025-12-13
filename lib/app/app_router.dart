@@ -16,6 +16,7 @@ import '../../feature/auth_onboarding/presentation/pages/password_reset_success_
 import '../../feature/auth_onboarding/presentation/pages/reset_password_page.dart';
 import '../../feature/auth_onboarding/presentation/pages/signin_page.dart';
 import '../../feature/auth_onboarding/presentation/pages/signup_page.dart';
+import '../feature/daily_immersion/presentation/pages/immersion_feed_page.dart';
 import '../core/routes/go_router_refresh_stream.dart'; // Import the helper file created above
 
 // --- Placeholder Screen (UNCHANGED) ---
@@ -318,7 +319,7 @@ class AppRouter {
       GoRoute(
         path: '/feed',
         builder: (context, state) =>
-            const MainAppShell(child: PlaceholderScreen(title: 'Feed')),
+            const MainAppShell(child: ImmersionFeedPage()),
       ),
       GoRoute(
         path: '/practice',

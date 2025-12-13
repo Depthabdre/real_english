@@ -5,6 +5,7 @@ import 'package:internet_connection_checker_plus/internet_connection_checker_plu
 import 'package:real_english/app/app_router.dart';
 import 'package:real_english/core/network/network_info.dart';
 import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_bloc.dart';
+import 'package:real_english/feature/daily_immersion/immersion_injection.dart' as immersion_di;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../feature/auth_onboarding/auth_injection.dart' as auth_di;
 // --- ADD THIS IMPORT ---
@@ -33,4 +34,7 @@ Future<void> init() async {
   await auth_di.initAuthFeature();
   // --- ADD THIS LINE ---
   await story_trails_di.initStoryTrailsFeature();
+
+  // 3. Daily Immersion (Shorts) --- ADD THIS LINE ---
+  await immersion_di.initImmersionFeature();
 }

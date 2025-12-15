@@ -23,6 +23,7 @@ import 'package:real_english/feature/StoryTrails/domain/entities/story_segment.d
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
 
   // 1. Load Environment Variables
   await dotenv.load(fileName: ".env");

@@ -13,6 +13,10 @@ class ImmersionBloc extends Bloc<ImmersionEvent, ImmersionState> {
   final GetImmersionFeed getImmersionFeed;
   final ToggleSaveVideo toggleSaveVideo;
   final MarkVideoWatched markVideoWatched;
+  // Flag to prevent spamming the API while already loading
+  bool _isLoadingMore = false;
+
+  bool get isLoadingMore => _isLoadingMore;
 
   ImmersionBloc({
     required this.getImmersionFeed,
@@ -22,6 +26,7 @@ class ImmersionBloc extends Bloc<ImmersionEvent, ImmersionState> {
     on<LoadImmersionFeed>(_onLoadFeed);
     on<ToggleSaveShort>(_onToggleSave);
     on<MarkShortAsWatched>(_onMarkWatched);
+    on<LoadMoreImmersionFeed>(_onLoadMoreFeed); // Register logic
   }
 
   Future<void> _onLoadFeed(
@@ -40,6 +45,51 @@ class ImmersionBloc extends Bloc<ImmersionEvent, ImmersionState> {
       (shorts) => emit(
         ImmersionLoaded(shorts: shorts, currentCategory: event.category),
       ),
+    );
+  }
+
+  Future<void> _onLoadMoreFeed(
+    LoadMoreImmersionFeed event,
+    Emitter<ImmersionState> emit,
+  ) async {
+    // 1. Safety check
+    if (state is! ImmersionLoaded || _isLoadingMore) return;
+
+    final currentState = state as ImmersionLoaded;
+    _isLoadingMore = true; // Lock
+
+    print("📥 Loading more videos...");
+
+    // 2. Fetch new batch
+    final result = await getImmersionFeed(
+      GetImmersionFeedParams(
+        category: currentState.currentCategory,
+        limit: 5, // Fetch 5 more
+      ),
+    );
+
+    result.fold(
+      (failure) {
+        _isLoadingMore = false;
+        // Optionally emit a snackbar error via a different state/stream,
+        // but usually we just stay silent on infinite scroll errors.
+      },
+      (newShorts) {
+        _isLoadingMore = false;
+
+        // 3. Filter duplicates (Just in case API returns videos we already have)
+        final existingIds = currentState.shorts.map((s) => s.id).toSet();
+        final uniqueNewShorts = newShorts
+            .where((s) => !existingIds.contains(s.id))
+            .toList();
+
+        if (uniqueNewShorts.isEmpty) return;
+
+        // 4. Append and Emit
+        emit(
+          currentState.copyWith(shorts: currentState.shorts + uniqueNewShorts),
+        );
+      },
     );
   }
 

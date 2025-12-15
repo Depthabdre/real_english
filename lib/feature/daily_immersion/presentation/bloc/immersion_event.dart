@@ -2,19 +2,20 @@ part of 'immersion_bloc.dart';
 
 abstract class ImmersionEvent extends Equatable {
   const ImmersionEvent();
-
   @override
   List<Object> get props => [];
 }
 
-/// Triggered when the page first opens or user pulls to refresh
 class LoadImmersionFeed extends ImmersionEvent {
   final String category;
-
   const LoadImmersionFeed({this.category = 'mix'});
-
   @override
   List<Object> get props => [category];
+}
+
+// --- NEW EVENT ---
+class LoadMoreImmersionFeed extends ImmersionEvent {
+  const LoadMoreImmersionFeed();
 }
 
 /// Triggered when user taps the "Heart" icon

@@ -36,7 +36,7 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
   final bool _useDummyData = false;
 
   // --- REFACTORED: A more general base URL for the whole API ---
-  final String _apiBaseUrl = "http://10.48.87.123:3000"; // Your machine's IP
+  final String _apiBaseUrl = "http://10.75.201.123:3000"; // Your machine's IP
 
   StoryTrailsRemoteDataSourceImpl({
     required this.client,

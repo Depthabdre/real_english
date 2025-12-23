@@ -16,7 +16,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   final AuthLocalDatasource authLocalDataSource;
 
   // Your Backend IP
-  final String _apiBaseUrl = "http://10.75.201.123:3000/api/profile";
+  final String _apiBaseUrl = "http://10.134.185.123:3000/api/profile";
 
   ProfileRemoteDataSourceImpl({
     required this.client,

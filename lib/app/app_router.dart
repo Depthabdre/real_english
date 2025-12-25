@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:real_english/feature/profile/presentation/pages/profile_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/injection_container.dart';
@@ -328,8 +329,7 @@ class AppRouter {
       ),
       GoRoute(
         path: '/profile',
-        builder: (context, state) =>
-            const MainAppShell(child: PlaceholderScreen(title: 'Profile')),
+        builder: (context, state) => const MainAppShell(child: ProfilePage()),
       ),
     ],
 

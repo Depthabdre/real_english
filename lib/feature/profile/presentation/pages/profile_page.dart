@@ -12,10 +12,12 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Helper to detect current theme mode for the toggle button UI
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return BlocProvider(
       create: (context) => sl<ProfileBloc>()..add(LoadUserProfile()),
       child: Scaffold(
-        // Uses AppTheme.scaffoldBackgroundColor (Off-white or Dark Grey)
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text(
@@ -26,15 +28,27 @@ class ProfilePage extends StatelessWidget {
           backgroundColor: Colors.transparent,
           elevation: 0,
           actions: [
-            // Minimalist Settings Icon (Theme Toggle logic usually lives here or in settings)
-            IconButton(
-              icon: Icon(
-                Icons.settings_outlined,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
+            // Theme Toggle Button
+            Container(
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).shadowColor.withValues(alpha: 0.2),
+                ),
               ),
-              onPressed: () {
-                // Navigate to settings
-              },
+              child: IconButton(
+                icon: Icon(
+                  isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  color: isDark ? Colors.amber : Colors.indigo,
+                  size: 20,
+                ),
+                onPressed: () {
+                  // TODO: Connect this to your AppTheme Logic
+                  // e.g. context.read<ThemeCubit>().toggleTheme();
+                },
+              ),
             ),
           ],
         ),
@@ -56,27 +70,30 @@ class ProfilePage extends StatelessWidget {
               final user = state.user;
 
               return SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 10,
                 ),
                 child: Column(
                   children: [
-                    // 1. Identity Header (Avatar + Name + Edit)
+                    // 1. Identity Header
                     ProfileHeader(
                       identity: user.identity,
                       onEditPressed: () => _showEditSheet(context, user),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 30),
 
-                    // 2. The Main Garden Card (Tree + Streak)
+                    // 2. The Main Garden Showcase
                     GardenShowcaseCard(growth: user.growth, habit: user.habit),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 30),
 
-                    // 3. Stats Row (Stories & Shorts)
+                    // 3. Stats Row
                     ProfileStatsRow(stats: user.growth.stats),
+
+                    const SizedBox(height: 50),
                   ],
                 ),
               );
@@ -97,7 +114,6 @@ class ProfilePage extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) {
-        // We provide the SAME Bloc instance to the sheet so it can trigger updates
         return BlocProvider.value(
           value: context.read<ProfileBloc>(),
           child: EditProfileSheet(currentUser: user),

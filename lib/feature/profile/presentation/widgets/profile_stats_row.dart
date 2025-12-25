@@ -14,8 +14,8 @@ class ProfileStatsRow extends StatelessWidget {
           child: _StatCard(
             label: "Stories Lived",
             value: "${stats.storiesCompleted}",
-            icon: Icons.auto_stories_rounded,
-            color: const Color(0xFF1976D2), // Primary Blue
+            icon: Icons.menu_book_rounded,
+            color: const Color(0xFF1E88E5), // Blue
           ),
         ),
         const SizedBox(width: 16),
@@ -51,18 +51,18 @@ class _StatCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: isDark ? Border.all(color: Colors.white10) : null,
         boxShadow: isDark
             ? []
             : [
                 BoxShadow(
-                  color: theme.shadowColor.withValues(alpha: 0.5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
                 ),
               ],
       ),
@@ -70,22 +70,28 @@ class _StatCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
             value,
-            style: theme.textTheme.titleLarge?.copyWith(fontSize: 24),
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),

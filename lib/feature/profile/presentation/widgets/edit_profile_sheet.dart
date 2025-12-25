@@ -97,7 +97,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
           BlocConsumer<ProfileBloc, ProfileState>(
             listener: (context, state) {
               if (state is ProfileLoaded && !state.isUpdating) {
-                Navigator.pop(context); // Close sheet on success
+                Navigator.pop(context);
               }
             },
             builder: (context, state) {

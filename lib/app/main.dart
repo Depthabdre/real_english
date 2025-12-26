@@ -8,6 +8,7 @@ import 'package:real_english/app/app_router.dart';
 import 'package:real_english/app/app_theme.dart';
 import 'package:real_english/app/bloc_observer.dart';
 import 'package:real_english/app/injection_container.dart';
+import 'package:real_english/app/theme_cubit.dart'; // <--- NEW IMPORT
 import 'package:real_english/feature/auth_onboarding/presentation/bloc/auth_bloc.dart';
 
 // Import your Hive Models
@@ -23,12 +24,11 @@ import 'package:real_english/feature/StoryTrails/domain/entities/story_segment.d
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
 
   // 1. Load Environment Variables
   await dotenv.load(fileName: ".env");
 
-  // ADD THIS LINE:
+  // Setup Bloc Observer
   Bloc.observer = SimpleBlocObserver();
 
   // 2. Initialize Hive
@@ -48,7 +48,7 @@ void main() async {
   // 4. Initialize Dependency Injection
   await init();
 
-  // 5. Get the Router (which already has AuthBloc injected via DI)
+  // 5. Get the Router
   final appRouter = sl<AppRouter>();
 
   runApp(MyApp(appRouter: appRouter));
@@ -63,24 +63,33 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        // We only CREATE the Bloc here.
-        // We DO NOT add AppStarted here, because the SplashScreen will do that.
+        // Auth Bloc (Existing)
         BlocProvider<AuthBloc>(create: (_) => sl<AuthBloc>()),
+
+        // --- NEW: Theme Cubit Provider ---
+        // This makes the ThemeCubit available to the entire app
+        BlocProvider<ThemeCubit>(create: (_) => ThemeCubit()),
       ],
-      // No BlocListener needed here anymore.
-      // The AppRouter listens to the stream internally.
-      child: MaterialApp.router(
-        title: 'Ethio English Learning',
 
-        // Theme Config
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
+      // --- NEW: Listen for Theme Changes ---
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return MaterialApp.router(
+            title: 'Ethio English Learning',
 
-        debugShowCheckedModeBanner: false,
+            // Theme Config
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
 
-        // Router Config
-        routerConfig: appRouter.router,
+            // --- UPDATED: Use the state from the Cubit ---
+            themeMode: themeMode,
+
+            debugShowCheckedModeBanner: false,
+
+            // Router Config
+            routerConfig: appRouter.router,
+          );
+        },
       ),
     );
   }

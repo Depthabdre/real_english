@@ -12,9 +12,10 @@ class ProfileStatsRow extends StatelessWidget {
       children: [
         Expanded(
           child: _StatCard(
-            label: "Stories Lived",
+            // --- UPDATED TEXT HERE ---
+            label: "Stories Listened",
             value: "${stats.storiesCompleted}",
-            icon: Icons.menu_book_rounded,
+            icon: Icons.headphones_rounded, // Changed icon to match "Listened"
             color: const Color(0xFF1E88E5), // Blue
           ),
         ),
@@ -60,9 +61,9 @@ class _StatCard extends StatelessWidget {
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 15,
-                  offset: const Offset(0, 5),
+                  color: theme.shadowColor.withValues(alpha: 0.5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
               ],
       ),

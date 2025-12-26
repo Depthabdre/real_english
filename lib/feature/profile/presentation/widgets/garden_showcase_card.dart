@@ -19,76 +19,61 @@ class GardenShowcaseCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      height: 380, // Height for spacing
+      height: 380,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(32),
-        // Minimalist Shadow
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black26
-                : const Color(0xFF1976D2).withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-        // Atmospheric Gradient (Day vs Night)
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isDark
-              ? [const Color(0xFF1A237E), const Color(0xFF121212)] // Night
-              : [const Color(0xFFE3F2FD), const Color(0xFFFFFFFF)], // Day
-        ),
+        // CONSISTENT CARD COLOR (No Gradient)
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(24),
+        border: isDark ? Border.all(color: Colors.white10) : null,
+        // Standard Shadow similar to other cards
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: theme.shadowColor.withValues(alpha: 0.5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Stack(
         children: [
-          // ------------------------------------------
-          // 1. Streak Badge (Top Right) - ICON BASED
-          // ------------------------------------------
+          // 1. Streak Badge
           Positioned(
-            top: 28,
-            right: 28,
+            top: 24,
+            right: 24,
             child: _buildStreakBadge(context, isDark),
           ),
 
-          // ------------------------------------------
-          // 2. Stage Text (Top Left)
-          // ------------------------------------------
+          // 2. Stage Label
           Positioned(
-            top: 28,
-            left: 28,
+            top: 24,
+            left: 24,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Current Growth",
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isDark ? Colors.white60 : Colors.blueGrey,
-                    fontSize: 12,
-                    letterSpacing: 0.5,
-                  ),
+                  "Current Stage",
+                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   growth.treeStage.replaceAll('_', ' ').toUpperCase(),
                   style: theme.textTheme.titleLarge?.copyWith(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    // Use primary color in light mode, white in dark
                     color: isDark ? Colors.white : theme.primaryColor,
-                    letterSpacing: 1.0,
                   ),
                 ),
               ],
             ),
           ),
 
-          // ------------------------------------------
-          // 3. The Tree (Bottom)
-          // ------------------------------------------
+          // 3. The Tree
           Positioned(
-            top: 100, // Push down to create gap
-            bottom: 0,
+            top: 100,
+            bottom: 20,
             left: 20,
             right: 20,
             child: AnimatedSwitcher(
@@ -106,57 +91,40 @@ class GardenShowcaseCard extends StatelessWidget {
     );
   }
 
-  /// 🌟 Streak Badge using ICONS
   Widget _buildStreakBadge(BuildContext context, bool isDark) {
+    final theme = Theme.of(context);
     final isActive = habit.isStreakActive;
 
-    // 1. Color Logic
-    // Active: Amber/Orange
-    // Inactive: Grey
     final accentColor = isActive
         ? (isDark ? const Color(0xFFFFD600) : const Color(0xFFFF6D00))
         : Colors.grey;
 
-    // 2. Background Logic (High Contrast against sky)
+    // Use a subtle background for the badge so it stands out on the card
     final backgroundColor = isDark
-        ? Colors.black.withValues(alpha: 0.5)
-        : Colors.white.withValues(alpha: 0.9);
-
-    final textColor = isDark ? Colors.white : Colors.black87;
+        ? Colors.white.withValues(alpha: 0.1)
+        : theme.scaffoldBackgroundColor;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: accentColor.withValues(alpha: 0.5),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // THE ICON (From GardenAssets)
           Icon(
             GardenAssets.getCelestialIcon(isDark, isActive),
             color: accentColor,
-            size: 20,
+            size: 18,
           ),
           const SizedBox(width: 8),
-          // THE TEXT
           Text(
             "${habit.currentStreak} Day Streak",
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              color: textColor,
+              color: theme.textTheme.bodyLarge?.color,
               fontSize: 14,
             ),
           ),

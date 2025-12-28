@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:real_english/core/network/network_info.dart';
-import '../../../../core/errors/exception.dart'; // You will need to create this file
+import '../../../../core/errors/exception.dart';
 import '../../../../core/errors/failures.dart';
 import '../../domain/entities/otp.dart';
 import '../../domain/entities/user.dart';
@@ -13,13 +13,13 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDatasource remoteDatasource;
   final AuthLocalDatasource localDatasource;
   final GoogleSignIn googleSignInInstance;
-  final NetworkInfo networkInfo; // <--- Add this
+  final NetworkInfo networkInfo;
 
   AuthRepositoryImpl({
     required this.remoteDatasource,
     required this.localDatasource,
     required this.googleSignInInstance,
-    required this.networkInfo, // <--- Add this
+    required this.networkInfo,
   });
 
   @override
@@ -50,9 +50,7 @@ class AuthRepositoryImpl implements AuthRepository {
         email: email,
         password: password,
       );
-      // NOTE: In a real app, you would get tokens from the response and cache them here.
-      // For the dummy implementation, we can just cache fake tokens.
-      await localDatasource.cacheToken('fake_access_token');
+
       return Right(user);
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message));

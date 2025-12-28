@@ -58,7 +58,9 @@ class _SignInPageState extends State<SignInPage> {
                   ),
                 );
             } else if (state is Authenticated) {
-              context.go('/home'); // On success, go to the main app screen
+              context.go(
+                '/story-trails',
+              ); // On success, go to the main app screen
             }
           },
           builder: (context, state) {

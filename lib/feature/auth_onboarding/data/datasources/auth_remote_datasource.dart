@@ -41,11 +41,9 @@ abstract class AuthRemoteDatasource {
 class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   final http.Client client;
   final AuthLocalDatasource localDatasource;
-  final GoogleSignIn googleSignInInstance; // Now injected for testability
+  final GoogleSignIn googleSignInInstance;
 
-  // Base URL for your backend API, configured for the Android Emulator.
-  //10.68.82.123
-  final String _baseUrl = "http://172.26.158.123:3000/api/auth";
+  final String _baseUrl = "http://10.166.107.123:3000/api/auth";
 
   AuthRemoteDatasourceImpl({
     required this.client,
@@ -53,7 +51,6 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     required this.googleSignInInstance,
   });
 
-  /// A centralized function to handle API error responses.
   Exception _handleError(http.Response response) {
     try {
       // Our backend sends errors in the format: { "error": "message" }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:visibility_detector/visibility_detector.dart'; // <--- IMPORT THIS
+import 'package:visibility_detector/visibility_detector.dart';
 import '../../domain/entities/immersion_short.dart';
 import 'immersion_overlay_content.dart';
 import 'translation_modal.dart';
@@ -22,19 +22,17 @@ class _ImmersionVideoItemState extends State<ImmersionVideoItem>
   @override
   void initState() {
     super.initState();
-    // Register lifecycle observer to pause video when app goes to background
     WidgetsBinding.instance.addObserver(this);
 
     _controller = YoutubePlayerController(
       initialVideoId: widget.short.youtubeId,
       flags: const YoutubePlayerFlags(
-        // CRITICAL FIX 1: Disable autoPlay here.
-        // We will control playback manually based on visibility.
-        autoPlay: false,
+        autoPlay: false, // Must be FALSE to prevent preloading chaos
         mute: false,
         loop: true,
         hideControls: true,
-        disableDragSeek: true,
+        disableDragSeek: true, // Prevents interfering with feed scrolling
+        forceHD: true,
       ),
     );
   }
@@ -46,28 +44,23 @@ class _ImmersionVideoItemState extends State<ImmersionVideoItem>
     super.dispose();
   }
 
-  // Handle App Background/Foreground state
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_controller.value.isFullScreen) return;
-
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused) {
       _controller.pause();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // CRITICAL FIX 2: Wrap everything in VisibilityDetector
+    // VisibilityDetector handles Play/Pause based on scroll position
     return VisibilityDetector(
-      key: Key(widget.short.youtubeId),
+      key: Key('video-${widget.short.youtubeId}'),
       onVisibilityChanged: (VisibilityInfo info) {
         if (!mounted) return;
 
-        // CRITICAL FIX 3: Logic to manage the Decoder Resource
-        // If more than 50% of the item is visible, play. Otherwise, pause.
-        if (info.visibleFraction > 0.5) {
+        // If more than 60% of the video is visible, Play. Else, Pause.
+        if (info.visibleFraction > 0.6) {
           if (!_controller.value.isPlaying && !_isTranslationVisible) {
             _controller.play();
           }
@@ -80,15 +73,13 @@ class _ImmersionVideoItemState extends State<ImmersionVideoItem>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // -----------------------------------------------------------
-          // LAYER 1: The Video Player
-          // -----------------------------------------------------------
+          // --- Video Layer ---
           GestureDetector(
-            onLongPressStart: (details) {
+            onLongPressStart: (_) {
               _controller.pause();
               setState(() => _isTranslationVisible = true);
             },
-            onLongPressEnd: (details) {
+            onLongPressEnd: (_) {
               setState(() => _isTranslationVisible = false);
               _controller.play();
             },
@@ -103,27 +94,19 @@ class _ImmersionVideoItemState extends State<ImmersionVideoItem>
               controller: _controller,
               aspectRatio: 9 / 16,
               showVideoProgressIndicator: false,
+              // Prevent controls from showing up
               bottomActions: const [],
               topActions: const [],
-              // Optimization: Prevent reloading the webview constantly
-              onReady: () {
-                // Optional: Ensure it starts muted if needed, or precache
-              },
             ),
           ),
 
-          // -----------------------------------------------------------
-          // LAYER 2: Gradient
-          // -----------------------------------------------------------
+          // --- Gradient Layer ---
           Positioned.fill(
             child: IgnorePointer(
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.8),
-                    ],
+                    colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
                     begin: Alignment.center,
                     end: Alignment.bottomCenter,
                   ),
@@ -132,27 +115,21 @@ class _ImmersionVideoItemState extends State<ImmersionVideoItem>
             ),
           ),
 
-          // -----------------------------------------------------------
-          // LAYER 3: UI Content
-          // -----------------------------------------------------------
+          // --- Text Info Layer ---
           AnimatedOpacity(
             opacity: _isTranslationVisible ? 0.0 : 1.0,
             duration: const Duration(milliseconds: 200),
             child: ImmersionOverlayContent(short: widget.short),
           ),
 
-          // -----------------------------------------------------------
-          // LAYER 4: Translation Modal
-          // -----------------------------------------------------------
+          // --- Modal Layer ---
           if (_isTranslationVisible)
             TranslationModal(
               title: widget.short.title,
               description: widget.short.description,
             ),
 
-          // -----------------------------------------------------------
-          // LAYER 5: Progress Line
-          // -----------------------------------------------------------
+          // --- Progress Bar ---
           Positioned(
             bottom: 0,
             left: 0,
@@ -166,11 +143,10 @@ class _ImmersionVideoItemState extends State<ImmersionVideoItem>
                 final progress =
                     value.position.inMilliseconds /
                     value.metaData.duration.inMilliseconds;
-
                 return LinearProgressIndicator(
                   value: progress.clamp(0.0, 1.0),
                   minHeight: 2,
-                  backgroundColor: Colors.white24,
+                  backgroundColor: Colors.white12,
                   valueColor: const AlwaysStoppedAnimation<Color>(
                     Color(0xFF64B5F6),
                   ),

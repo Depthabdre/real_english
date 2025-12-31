@@ -36,7 +36,7 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
   final bool _useDummyData = false;
 
   // --- REFACTORED: A more general base URL for the whole API ---
-  final String _apiBaseUrl = "http://10.166.107.123:3000"; // Your machine's IP
+  final String _apiBaseUrl = "http://192.168.107.123:3000"; // Your machine's IP
 
   StoryTrailsRemoteDataSourceImpl({
     required this.client,
@@ -71,7 +71,6 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
       // Dummy data logic is unchanged if you need to switch back for testing
       return null; // For brevity
     } else {
-      print("appis calling jkjaskjfjkj");
       final url = '$_apiBaseUrl/api/story-trails/level/$level/next';
       final response = await client.get(
         Uri.parse(url),
@@ -82,8 +81,6 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
       if (response.statusCode == 204) {
         return null;
       } else if (response.statusCode == 200) {
-        print("DEBUG JSON RESPONSE: ${response.body}");
-        // --- UPDATED: JSON is no longer wrapped in a 'data' object ---
         final Map<String, dynamic> jsonData = json.decode(response.body);
         return StoryTrailModel.fromJson(jsonData);
       } else {
@@ -104,7 +101,6 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        // --- UPDATED: JSON is no longer wrapped in a 'data' object ---
         final Map<String, dynamic> jsonData = json.decode(response.body);
         return StoryTrailModel.fromJson(jsonData);
       } else {

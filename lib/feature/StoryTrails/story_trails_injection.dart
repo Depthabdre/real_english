@@ -71,6 +71,7 @@ Future<void> initStoryTrailsFeature() async {
       remoteDataSource: sl(),
       localDataSource: sl(),
       networkInfo: sl(),
+      authLocalDataSource: sl(),
     ),
   );
 

@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/level_completion_status.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
+import 'package:real_english/feature/auth_onboarding/data/datasources/auth_local_datasource.dart';
 
 import '../../../../core/errors/exception.dart';
 import '../../../../core/errors/failures.dart';
@@ -22,11 +23,13 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   final StoryTrailsRemoteDataSource remoteDataSource;
   final StoryTrailsLocalDataSource localDataSource;
   final NetworkInfo networkInfo;
+  final AuthLocalDatasource authLocalDataSource;
 
   StoryTrailsRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
     required this.networkInfo,
+    required this.authLocalDataSource,
   });
 
   @override
@@ -288,32 +291,56 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   @override
   Future<Either<Failures, UserLearningProfile>> getUserLearningProfile() async {
     try {
+      // 1. First, check if we have specific Story progress cached (e.g., offline progress)
       final localProfile = await localDataSource.getCachedUserLearningProfile();
 
       if (localProfile != null) {
-        // If a profile exists in the cache, return it.
         return Right(localProfile);
-      } else {
-        // If the cache is empty (new user), create and return a complete, default profile.
-        // This is our "dummy" data for a fresh start.
-        print("🔹 No cached profile found. Creating a default profile.");
+      }
 
-        // TODO: In a real app, this ID should be fetched from your authentication state
-        // (e.g., from the currently logged-in user).
-        const defaultUserId = 'new_user_placeholder_id';
+      // 2. If Story Cache is empty (Fresh Install/Login), check Auth Cache!
+      // This prevents resetting to Level 1 if the user is actually Level 5.
+      print(
+        "🔹 Story Cache empty. Checking Auth Cache for existing user data...",
+      );
+      final authUser = await authLocalDataSource.getLastUser();
 
-        final defaultProfile = UserLearningProfileModel(
-          userId: defaultUserId,
-          currentLearningLevel: 1, // All users start at level 1
-          xpGlobal: 0, // All users start with 0 XP
-          completedTrailIds: [], // All users start with no completed trails
+      if (authUser != null) {
+        print("✅ Found Auth User: ID ${authUser.id}, Level ${authUser.level}");
+
+        // Map Auth User Data to a new Learning Profile
+        final syncedProfile = UserLearningProfileModel(
+          userId: authUser.id,
+          // HERE IS THE FIX: Use the level from Auth, not '1'
+          currentLearningLevel: authUser.level,
+          xpGlobal: 0,
+          // Note: Specific completed trails might be lost on uninstall unless
+          // your backend 'User' model also returns a list of completed IDs.
+          completedTrailIds: [],
         );
 
-        // Optionally, cache this new default profile right away
-        await localDataSource.cacheUserLearningProfile(defaultProfile);
+        // Immediately cache this so next time we hit step 1
+        await localDataSource.cacheUserLearningProfile(syncedProfile);
 
-        return Right(defaultProfile);
+        return Right(syncedProfile);
       }
+
+      // 3. If Auth Cache is also empty (New User / Error), use Default
+      print("🔸 No Auth data found. Creating default Level 1 profile.");
+
+      // Try to get at least the Token ID, otherwise use placeholder
+      // (Though usually, if you are on this page, you have a token)
+      const defaultUserId = 'unknown_user_id';
+
+      final defaultProfile = const UserLearningProfileModel(
+        userId: defaultUserId,
+        currentLearningLevel: 1,
+        xpGlobal: 0,
+        completedTrailIds: [],
+      );
+
+      await localDataSource.cacheUserLearningProfile(defaultProfile);
+      return Right(defaultProfile);
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message));
     }
@@ -324,15 +351,12 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
     UserLearningProfile profile,
   ) async {
     try {
-      // This logic is already correct. It ensures we always cache a Model.
-      final profileModel = profile is UserLearningProfileModel
-          ? profile
-          : UserLearningProfileModel(
-              userId: profile.userId,
-              currentLearningLevel: profile.currentLearningLevel,
-              xpGlobal: profile.xpGlobal,
-              completedTrailIds: profile.completedTrailIds,
-            );
+      final profileModel = UserLearningProfileModel(
+        userId: profile.userId,
+        currentLearningLevel: profile.currentLearningLevel,
+        xpGlobal: profile.xpGlobal,
+        completedTrailIds: profile.completedTrailIds,
+      );
       await localDataSource.cacheUserLearningProfile(profileModel);
       return const Right(null);
     } on CacheException catch (e) {

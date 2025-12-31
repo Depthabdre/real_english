@@ -5,7 +5,7 @@ import 'package:preload_page_view/preload_page_view.dart';
 import '../../../../app/injection_container.dart';
 import '../bloc/immersion_bloc.dart';
 import '../widgets/immersion_video_item.dart';
-import '../widgets/fast_scroll_physics.dart';
+import '../widgets/fast_scroll_physics.dart'; // Ensure this matches file name
 
 class ImmersionFeedPage extends StatelessWidget {
   const ImmersionFeedPage({super.key});
@@ -67,27 +67,25 @@ class _ImmersionViewState extends State<_ImmersionView> {
                 key: const PageStorageKey('immersion_feed'),
                 controller: _pageController,
                 scrollDirection: Axis.vertical,
+                // Apply the sensitive physics here
                 physics: const FastScrollPhysics(),
                 preloadPagesCount: 1,
                 itemCount: state.shorts.length,
-
                 onPageChanged: (index) {
                   if (index >= state.shorts.length - 2) {
                     bloc.add(const LoadMoreImmersionFeed());
                   }
                 },
-
                 itemBuilder: (context, index) {
                   final short = state.shorts[index];
-
+                  // ValueKey is crucial for recycling video players correctly
                   return ImmersionVideoItem(
-                    key: ValueKey('video-${short.id}'),
+                    key: ValueKey('short-${short.id}'),
                     short: short,
                   );
                 },
               ),
 
-              /// Subtle bottom loader (overlay, not a page)
               if (bloc.isLoadingMore)
                 const Positioned(
                   bottom: 24,
@@ -107,7 +105,6 @@ class _ImmersionViewState extends State<_ImmersionView> {
             ],
           );
         }
-
         return const SizedBox.shrink();
       },
     );

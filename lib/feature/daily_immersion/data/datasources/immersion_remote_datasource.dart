@@ -19,7 +19,7 @@ class ImmersionRemoteDataSourceImpl implements ImmersionRemoteDataSource {
   final AuthLocalDatasource authLocalDataSource;
 
   // Replace with your actual IP address
-  final String _apiBaseUrl = "http://10.166.107.123:3000";
+  final String _apiBaseUrl = "http://192.168.107.123:3000";
 
   ImmersionRemoteDataSourceImpl({
     required this.client,

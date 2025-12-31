@@ -267,7 +267,7 @@ class StoryTrailsListPage extends StatelessWidget {
                     ),
                     child: ElevatedButton(
                       onPressed: () {
-                        context.go('/story-trails/player/${storyTrail.id}');
+                        context.go('/story-player/${storyTrail.id}');
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,

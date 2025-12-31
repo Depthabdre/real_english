@@ -21,30 +21,28 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<Either<Failures, UserProfile>> getUserProfile() async {
-    // 1. Check Local Cache FIRST
-    try {
-      final localProfile = await localDataSource.getLastUserProfile();
-      // We have a cached profile! Return it IMMEDIATELY.
-      // This makes the UI load super fast.
-      return Right(localProfile);
-    } on CacheException {
-      // 2. No Cache? That's OK. Carry on...
-      print("No local profile. Fetching from remote...");
-    }
-
-    // 3. Check Network Connection
+    // 1. Check network FIRST
     if (await networkInfo.isConnected) {
       try {
-        // 4. Online? Fetch fresh data and update the cache.
+        // 2. Online → fetch from remote
         final remoteProfile = await remoteDataSource.getUserProfile();
+
+        // 3. Update local cache
         await localDataSource.cacheUserProfile(remoteProfile);
+
+        // 4. Return fresh data
         return Right(remoteProfile);
       } on ServerException catch (e) {
         return Left(ServerFailure(message: e.message));
       }
     } else {
-      // 5. Offline and no cache? We have nothing to show :(
-      return Left(CacheFailure(message: "No internet and no cached profile."));
+      // 5. Offline → fallback to cache
+      try {
+        final localProfile = await localDataSource.getLastUserProfile();
+        return Right(localProfile);
+      } on CacheException catch (e) {
+        return Left(CacheFailure(message: e.message));
+      }
     }
   }
 

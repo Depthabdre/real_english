@@ -13,44 +13,60 @@ class FastScrollPhysics extends ScrollPhysics {
     ScrollMetrics position,
     double velocity,
   ) {
-    // Default behavior at edges
-    if ((position.pixels <= position.minScrollExtent && velocity < 0.0) ||
-        (position.pixels >= position.maxScrollExtent && velocity > 0.0)) {
-      return super.createBallisticSimulation(position, velocity);
-    }
+    // 1. Setup dimensions
+    final double pageSize = position.viewportDimension;
+    final double currentPixels = position.pixels;
 
-    final double pageHeight = position.viewportDimension;
-    final int currentPage = (position.pixels / pageHeight).floor();
-    final double currentPagePixels = currentPage * pageHeight;
+    // 2. Determine which page is "closest" right now (Round)
+    final int closestPage = (currentPixels / pageSize).round();
+    final double closestPagePixels = closestPage * pageSize;
 
-    double target = currentPagePixels;
+    // 3. Calculate how far we are from that closest page
+    // Positive = we pulled slightly down (towards next)
+    // Negative = we pulled slightly up (towards previous)
+    final double delta = currentPixels - closestPagePixels;
 
-    const double flickVelocity = 5.0; // very light flick
+    double targetPixels;
 
-    // 1️⃣ Any flick → move immediately
-    if (velocity.abs() > flickVelocity) {
-      target += velocity > 0 ? pageHeight : -pageHeight;
-    }
-    // 2️⃣ ANY drag (even 1px) → move
-    else {
-      final double drag = position.pixels - currentPagePixels;
+    // 4. THE LOGIC: Ultra-Sensitive Snapping
+    // If velocity is high, let standard flinging handle it.
+    // If velocity is low (drag and drop), we check for "slight snips".
 
-      if (drag > 0) {
-        target += pageHeight; // drag down
-      } else if (drag < 0) {
-        target -= pageHeight; // drag up
+    if (velocity.abs() > 300) {
+      // Standard fling behavior if user flicks fast
+      targetPixels = velocity > 0
+          ? (closestPage + (delta > 0 ? 1 : 0)) * pageSize
+          : (closestPage - (delta < 0 ? 1 : 0)) * pageSize;
+    } else {
+      // User dragged slowly or just a tiny bit.
+      // We set a tiny threshold (e.g., 10 pixels).
+      // If you moved just 10 pixels away from the center, we commit to the move.
+
+      const double sensitivityThreshold = 10.0;
+
+      if (delta > sensitivityThreshold) {
+        // User moved slightly down -> Go Next
+        targetPixels = (closestPage + 1) * pageSize;
+      } else if (delta < -sensitivityThreshold) {
+        // User moved slightly up -> Go Previous
+        targetPixels = (closestPage - 1) * pageSize;
+      } else {
+        // User barely touched it -> Snap back
+        targetPixels = closestPagePixels;
       }
     }
 
-    final double clampedTarget = target.clamp(
+    // 5. Bounds Check (Don't scroll past start or end)
+    targetPixels = targetPixels.clamp(
       position.minScrollExtent,
       position.maxScrollExtent,
     );
 
+    // 6. Create the Spring (Snap effect)
     return ScrollSpringSimulation(
-      SpringDescription(mass: 0.45, stiffness: 650.0, damping: 48.0),
+      const SpringDescription(mass: 0.5, stiffness: 800, damping: 30),
       position.pixels,
-      clampedTarget,
+      targetPixels,
       velocity,
       tolerance: toleranceFor(position),
     );

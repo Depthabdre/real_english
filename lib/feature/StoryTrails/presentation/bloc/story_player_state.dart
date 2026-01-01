@@ -14,8 +14,6 @@ class StoryPlayerDisplay extends StoryPlayerState {
   final StoryTrail storyTrail;
   final StoryProgress progress;
   final Map<String, String> audioCache;
-
-  // --- NEW FIELDS FOR SYNCING ---
   final Duration? currentAudioDuration; // Tells UI how fast to type
   final String?
   playingSegmentId; // Tells UI *which* segment is actually playing (hides text if null)

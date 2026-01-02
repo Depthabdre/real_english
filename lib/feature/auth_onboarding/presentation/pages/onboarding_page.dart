@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio/just_audio.dart'; // 1. Using Just Audio
 import '../../../../app/injection_container.dart';
-import '../../../../app/app_router.dart'; // Ensure correct import path
+import '../../../../app/app_router.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -10,58 +12,163 @@ class OnboardingPage extends StatefulWidget {
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage> {
+class _OnboardingPageState extends State<OnboardingPage>
+    with TickerProviderStateMixin {
   final PageController _pageController = PageController();
+
+  // 1. Just Audio Player
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  // Animation Controller for the Typewriter Effect
+  late AnimationController _textAnimController;
+
   int _currentPage = 0;
+  bool _isContentFinished = false; // Locks the buttons
+  bool _isMuted = false;
+
+  // Safety Timer (in case audio fails to load)
+  Timer? _safetyTimer;
 
   // ---------------------------------------------------------
-  // 1. DATA: The 4-Step Narrative Arc
+  // 2. DATA: Narrative + Audio (WAV)
   // ---------------------------------------------------------
   final List<OnboardingItem> _items = [
-    // SCREEN 1: THE PROBLEM (School Failed You)
     OnboardingItem(
       imagePath: 'assets/onboarding/stress_study.png',
-      title: "Years in School.\nStill Can't Speak?",
+      // JUST AUDIO REQUIREMENT: Use full path starting with 'assets/'
+      audioPath: 'assets/audio/intro_struggle.wav',
+      title: "Still\nStruggling?",
       description:
-          "You treated English like a textbook subject—memorizing rules to pass exams. But you can't 'study' fluency. You have to acquire it.",
-      bgColor: const Color(0xFFF5F7FA), // Calm Light Grey
+          "You studied for years... yet the words get stuck. It is not your fault. The process asked too much from your mind... and too little from your heart.",
+      bgColor: const Color(0xFFF5F7FA),
       accentColor: const Color(0xFF546E7A),
     ),
-
-    // SCREEN 2: THE PROOF (Your Natural Ability) - **Updated with your text**
     OnboardingItem(
       imagePath: 'assets/onboarding/child_listen.png',
-      title: "How Did You\nLearn Amharic?",
+      audioPath: 'assets/audio/natural_miracle.wav',
+      title: "You Learned\nOnce Naturally.",
       description:
-          "No one taught you grammar rules.\nNo exams. No stress.\nYou listened, understood, and spoke — naturally.",
-      bgColor: const Color(0xFFF3E5F5), // Soft Lavender
-      accentColor: const Color(0xFF6C63FF), // Primary Purple
+          "Remember how you learned Amharic? No rules. No exams. Just listening... and understanding. That power... is still sleeping inside you.",
+      bgColor: const Color(0xFFF3E5F5),
+      accentColor: const Color(0xFF6C63FF),
     ),
-
-    // SCREEN 3: THE METHOD (Immersion)
     OnboardingItem(
       imagePath: 'assets/onboarding/phone_laugh.png',
-      title: "Don't Memorize.\nJust Live It.",
+      audioPath: 'assets/audio/no_pressure.wav',
+      title: "No Pressure\nHere.",
       description:
-          "Immerse yourself in addictive stories and short videos. Your brain will spot the patterns and lock them in without you trying. It’s entertainment, not homework.",
-      bgColor: const Color(0xFFFFF3E0), // Soft Peach
-      accentColor: const Color(0xFFFF6584), // Secondary Pink/Red
+          "Stop fighting the language. There is nothing to prove here. Just watch... listen... and let the understanding settle in.",
+      bgColor: const Color(0xFFFFF3E0),
+      accentColor: const Color(0xFFFF6584),
     ),
-
-    // SCREEN 4: THE RESULT (Confidence)
     OnboardingItem(
       imagePath: 'assets/onboarding/flower_bloom.png',
-      title: "Confidence.\nNot Grades.",
+      audioPath: 'assets/audio/confidence_bloom.wav',
+      title: "Confidence\nBuilds Quietly.",
       description:
-          "Forget the fear of making mistakes. Track your growth, not your test scores. Build real-world speaking confidence and let your English bloom.",
-      bgColor: const Color(0xFFE8F5E9), // Soft Mint
-      accentColor: const Color(0xFF4CAF50), // Green
+          "Mistakes will pass. Fear will fade. This is not about grades... it is about finding your voice.",
+      bgColor: const Color(0xFFE8F5E9),
+      accentColor: const Color(0xFF4CAF50),
     ),
   ];
-  // ---------------------------------------------------------
-  // 2. LOGIC: Existing Navigation Logic Preserved
-  // ---------------------------------------------------------
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Initialize Animation Controller (Duration set dynamically later)
+    _textAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+
+    // 2. Just Audio Completion Listener
+    // We listen to the state stream to know when it finishes
+    _audioPlayer.playerStateStream.listen((playerState) {
+      if (playerState.processingState == ProcessingState.completed) {
+        _finishContent();
+      }
+    });
+
+    // Start First Slide
+    _playPageContent(0);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _audioPlayer.dispose(); // Dispose Just Audio player
+    _textAnimController.dispose();
+    _safetyTimer?.cancel();
+    super.dispose();
+  }
+
+  void _finishContent() {
+    if (mounted && !_isContentFinished) {
+      setState(() {
+        _isContentFinished = true;
+        _textAnimController.value = 1.0; // Ensure text is fully shown
+      });
+    }
+  }
+
+  Future<void> _playPageContent(int index) async {
+    // Reset State for new page
+    setState(() {
+      _isContentFinished = false;
+      _textAnimController.reset();
+    });
+    _safetyTimer?.cancel();
+
+    // Safety Net: Unlock buttons after 10s if audio crashes
+    _safetyTimer = Timer(const Duration(seconds: 10), _finishContent);
+
+    if (!_isMuted) {
+      try {
+        // Stop previous
+        await _audioPlayer.stop();
+
+        // 3. Just Audio Load & Sync
+        // Load the asset
+        final duration = await _audioPlayer.setAsset(_items[index].audioPath);
+
+        // Update Animation Duration to match Audio
+        // If duration is null (rare), default to 3s
+        final safeDuration = duration ?? const Duration(seconds: 3);
+
+        setState(() {
+          _textAnimController.duration = safeDuration;
+        });
+
+        // Play and Animate
+        _textAnimController.forward();
+        _audioPlayer.play();
+      } catch (e) {
+        debugPrint("Audio Error: $e");
+        _finishContent(); // Unlock on error
+      }
+    } else {
+      // Muted logic: Simulate reading time
+      _textAnimController.duration = const Duration(seconds: 4);
+      _textAnimController.forward();
+      Future.delayed(const Duration(seconds: 4), _finishContent);
+    }
+  }
+
+  void _toggleMute() {
+    setState(() {
+      _isMuted = !_isMuted;
+    });
+    if (_isMuted) {
+      _audioPlayer.stop();
+      _finishContent(); // Unlock immediately if muted
+    } else {
+      _playPageContent(_currentPage); // Restart audio
+    }
+  }
+
   void _finishOnboarding() async {
+    _audioPlayer.stop();
     final appRouter = sl<AppRouter>();
     await appRouter.setOnboardingComplete();
     if (mounted) {
@@ -71,38 +178,82 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Current Active Color Theme based on page index
     final activeItem = _items[_currentPage];
 
     return Scaffold(
-      // Animated Background Color Transition
+      resizeToAvoidBottomInset: false,
       body: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
+        duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOut,
         color: activeItem.bgColor,
-        child: SafeArea(
-          child: Column(
-            children: [
-              // --- TOP: The Content (Image + Text) ---
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _items.length,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentPage = index;
-                    });
-                  },
-                  itemBuilder: (_, index) {
-                    return _OnboardingContent(item: _items[index]);
-                  },
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                // --- TOP: Immersive Image (55%) ---
+                Expanded(
+                  flex: 55,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    physics:
+                        const NeverScrollableScrollPhysics(), // Disable swipe
+                    itemCount: _items.length,
+                    itemBuilder: (_, index) {
+                      return _ImmersiveImage(item: _items[index]);
+                    },
+                  ),
+                ),
+
+                // --- BOTTOM: Text & Controls (45%) ---
+                Expanded(
+                  flex: 45,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+
+                        // Text Content (Typewriter Effect)
+                        Expanded(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: _TypewriterTextContent(
+                              item: activeItem,
+                              controller: _textAnimController,
+                            ),
+                          ),
+                        ),
+
+                        // Bottom Controls
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10, bottom: 30),
+                          child: _buildBottomControls(activeItem.accentColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // --- MUTE BUTTON ---
+            Positioned(
+              top: 50,
+              right: 20,
+              child: IconButton(
+                onPressed: _toggleMute,
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black.withValues(alpha: 0.2),
+                  padding: const EdgeInsets.all(8),
+                ),
+                icon: Icon(
+                  _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                  color: Colors.white,
+                  size: 24,
                 ),
               ),
-
-              // --- BOTTOM: Controls (Indicators + Buttons) ---
-              _buildBottomControls(activeItem.accentColor),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -111,53 +262,47 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget _buildBottomControls(Color accentColor) {
     final isLastPage = _currentPage == _items.length - 1;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 30.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // 1. SKIP BUTTON (Hidden on last page)
-          if (!isLastPage)
-            TextButton(
-              onPressed: _finishOnboarding,
-              child: Text(
-                "Skip",
-                style: TextStyle(
-                  fontFamily: 'Nunito',
-                  color: Colors.grey.shade600,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // SKIP (Hidden unless content finished & not last page)
+        if (!isLastPage && _isContentFinished)
+          TextButton(
+            onPressed: _finishOnboarding,
+            child: Text(
+              "Skip",
+              style: TextStyle(
+                fontFamily: 'Nunito',
+                color: Colors.grey.shade600,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
-            )
-          else
-            const SizedBox(width: 60), // Spacer to keep layout balanced
-          // 2. INDICATORS (Animated Pills)
-          Row(
-            children: List.generate(
-              _items.length,
-              (index) =>
-                  _buildPageIndicator(index == _currentPage, accentColor),
             ),
-          ),
+          )
+        else
+          const SizedBox(width: 60),
 
-          // 3. NEXT / GET STARTED BUTTON
-          if (isLastPage)
-            // "Get Started" - High emphasis with Animation
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.8, end: 1.0),
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.elasticOut,
-              builder: (context, scale, child) {
-                return Transform.scale(
-                  scale: scale,
-                  child: ElevatedButton(
+        // INDICATORS
+        Row(
+          children: List.generate(
+            _items.length,
+            (index) => _buildPageIndicator(index == _currentPage, accentColor),
+          ),
+        ),
+
+        // NEXT / START BUTTON (Disabled if audio playing)
+        IgnorePointer(
+          ignoring: !_isContentFinished,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: _isContentFinished ? 1.0 : 0.3,
+            child: isLastPage
+                ? ElevatedButton(
                     onPressed: _finishOnboarding,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accentColor,
                       foregroundColor: Colors.white,
                       elevation: 8,
-                      shadowColor: accentColor.withValues(alpha: 0.4),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
                         vertical: 16,
@@ -174,42 +319,45 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                );
-              },
-            )
-          else
-            // "Next" - Simple Circle Arrow
-            InkWell(
-              onTap: () {
-                _pageController.nextPage(
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeInOutCubic,
-                );
-              },
-              borderRadius: BorderRadius.circular(50),
-              child: Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: accentColor.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                  )
+                : InkWell(
+                    onTap: () {
+                      int next = _currentPage + 1;
+                      _pageController.animateToPage(
+                        next,
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeInOutCubic,
+                      );
+                      _playPageContent(next); // Play next audio
+                      setState(() {
+                        _currentPage = next;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(50),
+                    child: Container(
+                      width: 55,
+                      height: 55,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: accentColor.withValues(alpha: 0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-        ],
-      ),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -218,8 +366,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.symmetric(horizontal: 4.0),
       height: 8,
-      // Active indicator stretches like a pill
-      width: isActive ? 28 : 8,
+      width: isActive ? 32 : 8,
       decoration: BoxDecoration(
         color: isActive ? color : Colors.grey.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
@@ -229,73 +376,102 @@ class _OnboardingPageState extends State<OnboardingPage> {
 }
 
 // ---------------------------------------------------------
-// 3. CONTENT WIDGET: Displays Image & Text
+// TYPEWRITER TEXT WIDGET
 // ---------------------------------------------------------
-class _OnboardingContent extends StatelessWidget {
+class _TypewriterTextContent extends StatelessWidget {
   final OnboardingItem item;
+  final AnimationController controller;
 
-  const _OnboardingContent({required this.item});
+  const _TypewriterTextContent({required this.item, required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32.0),
-      child: Column(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Title (Static)
+        Text(
+          item.title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'Fredoka',
+            color: const Color(0xFF2D3142),
+            fontSize: 32,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Description (Animated Typewriter)
+        AnimatedBuilder(
+          animation: controller,
+          builder: (context, child) {
+            final int textLength = item.description.length;
+            final int currentLength = (controller.value * textLength).toInt();
+            // Safety check
+            final int safeLength = currentLength > textLength
+                ? textLength
+                : currentLength;
+            final String displayedText = item.description.substring(
+              0,
+              safeLength,
+            );
+
+            return Text(
+              displayedText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Nunito',
+                color: const Color(0xFF546E7A),
+                fontSize: 18,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// IMAGE WIDGET
+// ---------------------------------------------------------
+class _ImmersiveImage extends StatelessWidget {
+  final OnboardingItem item;
+  const _ImmersiveImage({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(40),
+        bottomRight: Radius.circular(40),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          const Spacer(flex: 1), // Push content down slightly
-          // --- IMAGE SECTION ---
-          // We use flexible to adapt to different screen sizes
-          Flexible(
-            flex: 5,
+          Image.asset(item.imagePath, fit: BoxFit.cover),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 100,
             child: Container(
               decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: item.accentColor.withValues(alpha: 0.1),
-                    blurRadius: 40,
-                    offset: const Offset(0, 20),
-                  ),
-                ],
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.1),
+                  ],
+                ),
               ),
-              child: Image.asset(item.imagePath, fit: BoxFit.contain),
-            ),
-          ),
-
-          const SizedBox(height: 40),
-
-          // --- TEXT SECTION ---
-          Flexible(
-            flex: 4,
-            child: Column(
-              children: [
-                // Title (Fredoka Font)
-                Text(
-                  item.title,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Fredoka', // Friendly Rounded Font
-                    color: const Color(0xFF2D3142), // Dark Slate
-                    fontSize: 32,
-                    height: 1.1,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Description (Nunito Font)
-                Text(
-                  item.description,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Nunito', // Readable Soft Font
-                    color: const Color(0xFF607D8B), // Blue Grey
-                    fontSize: 17,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -304,11 +480,9 @@ class _OnboardingContent extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------
-// 4. MODEL CLASS
-// ---------------------------------------------------------
 class OnboardingItem {
   final String imagePath;
+  final String audioPath;
   final String title;
   final String description;
   final Color bgColor;
@@ -316,6 +490,7 @@ class OnboardingItem {
 
   OnboardingItem({
     required this.imagePath,
+    required this.audioPath,
     required this.title,
     required this.description,
     required this.bgColor,

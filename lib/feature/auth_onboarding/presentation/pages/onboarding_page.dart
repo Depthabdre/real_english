@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:just_audio/just_audio.dart'; // 1. Using Just Audio
+import 'package:just_audio/just_audio.dart'; // Just Audio ^0.9.36
 import '../../../../app/injection_container.dart';
 import '../../../../app/app_router.dart';
 
@@ -15,27 +15,27 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage>
     with TickerProviderStateMixin {
   final PageController _pageController = PageController();
-
-  // 1. Just Audio Player
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   // Animation Controller for the Typewriter Effect
   late AnimationController _textAnimController;
 
   int _currentPage = 0;
-  bool _isContentFinished = false; // Locks the buttons
+  bool _isContentFinished = false; // Only true when LAST audio finishes
   bool _isMuted = false;
 
-  // Safety Timer (in case audio fails to load)
-  Timer? _safetyTimer;
+  // We ignore all audio events while this is true.
+  bool _isSwitchingPage = false;
+
+  Timer? _loadingSafetyTimer;
+  Timer? _autoAdvanceTimer;
 
   // ---------------------------------------------------------
-  // 2. DATA: Narrative + Audio (WAV)
+  // 1. DATA
   // ---------------------------------------------------------
   final List<OnboardingItem> _items = [
     OnboardingItem(
       imagePath: 'assets/onboarding/stress_study.png',
-      // JUST AUDIO REQUIREMENT: Use full path starting with 'assets/'
       audioPath: 'assets/audio/intro_struggle.wav',
       title: "Still\nStruggling?",
       description:
@@ -76,17 +76,23 @@ class _OnboardingPageState extends State<OnboardingPage>
   void initState() {
     super.initState();
 
-    // Initialize Animation Controller (Duration set dynamically later)
+    // Init Animation Controller
     _textAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 4),
     );
 
-    // 2. Just Audio Completion Listener
-    // We listen to the state stream to know when it finishes
+    // 2. ROBUST LISTENER LOGIC
     _audioPlayer.playerStateStream.listen((playerState) {
+      // LOCK CHECK: If we are switching pages, IGNORE everything.
+      if (_isSwitchingPage) return;
+
       if (playerState.processingState == ProcessingState.completed) {
-        _finishContent();
+        // DOUBLE CHECK: Ensure we actually played some audio (>100ms)
+        // This stops "ghost" completions from previous tracks.
+        if (_audioPlayer.position.inMilliseconds > 100) {
+          _handleAudioComplete();
+        }
       }
     });
 
@@ -97,62 +103,112 @@ class _OnboardingPageState extends State<OnboardingPage>
   @override
   void dispose() {
     _pageController.dispose();
-    _audioPlayer.dispose(); // Dispose Just Audio player
+    _audioPlayer.dispose();
     _textAnimController.dispose();
-    _safetyTimer?.cancel();
+    _loadingSafetyTimer?.cancel();
+    _autoAdvanceTimer?.cancel();
     super.dispose();
   }
 
-  void _finishContent() {
-    if (mounted && !_isContentFinished) {
+  // --- LOGIC: Handle Audio End ---
+  void _handleAudioComplete() {
+    if (!mounted || _isSwitchingPage) return;
+
+    // Ensure text finishes visually
+    _textAnimController.value = 1.0;
+
+    if (_currentPage < _items.length - 1) {
+      // NOT LAST PAGE -> Wait 1s then Go Next
+      // We lock immediately to prevent repeated triggers
+      _isSwitchingPage = true;
+
+      _autoAdvanceTimer = Timer(const Duration(seconds: 1), () {
+        if (mounted) _goToNextPage();
+      });
+    } else {
+      // LAST PAGE -> Unlock Button
       setState(() {
         _isContentFinished = true;
-        _textAnimController.value = 1.0; // Ensure text is fully shown
       });
     }
   }
 
-  Future<void> _playPageContent(int index) async {
-    // Reset State for new page
-    setState(() {
-      _isContentFinished = false;
-      _textAnimController.reset();
-    });
-    _safetyTimer?.cancel();
+  void _goToNextPage() async {
+    int nextIndex = _currentPage + 1;
 
-    // Safety Net: Unlock buttons after 10s if audio crashes
-    _safetyTimer = Timer(const Duration(seconds: 10), _finishContent);
+    // Update Index UI
+    setState(() {
+      _currentPage = nextIndex;
+    });
+
+    // Slide Animation
+    _pageController.animateToPage(
+      nextIndex,
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeInOutCubic,
+    );
+
+    // Play Content
+    await _playPageContent(nextIndex);
+  }
+
+  // --- LOGIC: Play Content (With Locks) ---
+  Future<void> _playPageContent(int index) async {
+    _loadingSafetyTimer?.cancel();
+    _autoAdvanceTimer?.cancel();
+
+    // 1. LOCK: Prevent listener from firing during setup
+    _isSwitchingPage = true;
+
+    // 2. Reset Animation UI
+    _textAnimController.stop();
+    _textAnimController.reset();
+
+    // Safety: If loading fails/hangs for 6s, simulate completion
+    _loadingSafetyTimer = Timer(const Duration(seconds: 6), () {
+      debugPrint("Audio load timeout - switching to simulation");
+      _runSimulatedPlayback();
+    });
 
     if (!_isMuted) {
       try {
-        // Stop previous
         await _audioPlayer.stop();
 
-        // 3. Just Audio Load & Sync
-        // Load the asset
+        // 3. Load Asset
         final duration = await _audioPlayer.setAsset(_items[index].audioPath);
 
-        // Update Animation Duration to match Audio
-        // If duration is null (rare), default to 3s
-        final safeDuration = duration ?? const Duration(seconds: 3);
+        // Load Success -> Cancel Safety
+        _loadingSafetyTimer?.cancel();
 
-        setState(() {
-          _textAnimController.duration = safeDuration;
-        });
+        // 4. Sync Animation Duration
+        final exactDuration = duration ?? const Duration(seconds: 5);
+        _textAnimController.duration = exactDuration;
 
-        // Play and Animate
-        _textAnimController.forward();
+        // 5. UNLOCK & PLAY
+        // We are ready to play, so we enable the listener again
+        _isSwitchingPage = false;
+
         _audioPlayer.play();
+        _textAnimController.forward();
       } catch (e) {
         debugPrint("Audio Error: $e");
-        _finishContent(); // Unlock on error
+        _loadingSafetyTimer?.cancel();
+        _runSimulatedPlayback();
       }
     } else {
-      // Muted logic: Simulate reading time
-      _textAnimController.duration = const Duration(seconds: 4);
-      _textAnimController.forward();
-      Future.delayed(const Duration(seconds: 4), _finishContent);
+      _loadingSafetyTimer?.cancel();
+      _runSimulatedPlayback();
     }
+  }
+
+  void _runSimulatedPlayback() {
+    // Used for Mute Mode or Error Fallback
+    _isSwitchingPage = false; // Unlock so timer works
+    _textAnimController.duration = const Duration(seconds: 5);
+    _textAnimController.forward();
+
+    // Manually trigger "Complete" after 6 seconds
+    _autoAdvanceTimer = Timer(const Duration(seconds: 6), _handleAudioComplete);
   }
 
   void _toggleMute() {
@@ -161,9 +217,11 @@ class _OnboardingPageState extends State<OnboardingPage>
     });
     if (_isMuted) {
       _audioPlayer.stop();
-      _finishContent(); // Unlock immediately if muted
+      _runSimulatedPlayback();
     } else {
-      _playPageContent(_currentPage); // Restart audio
+      // Cancel simulation and restart real audio
+      _autoAdvanceTimer?.cancel();
+      _playPageContent(_currentPage);
     }
   }
 
@@ -195,8 +253,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                   flex: 55,
                   child: PageView.builder(
                     controller: _pageController,
-                    physics:
-                        const NeverScrollableScrollPhysics(), // Disable swipe
+                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: _items.length,
                     itemBuilder: (_, index) {
                       return _ImmersiveImage(item: _items[index]);
@@ -213,11 +270,14 @@ class _OnboardingPageState extends State<OnboardingPage>
                       children: [
                         const SizedBox(height: 20),
 
-                        // Text Content (Typewriter Effect)
+                        // Text Content
                         Expanded(
                           child: SingleChildScrollView(
                             physics: const BouncingScrollPhysics(),
+                            // KEY FIX: ValueKey ensures the widget destroys and rebuilds
+                            // on every page turn, guaranteeing the typing effect resets.
                             child: _TypewriterTextContent(
+                              key: ValueKey(_currentPage),
                               item: activeItem,
                               controller: _textAnimController,
                             ),
@@ -265,22 +325,8 @@ class _OnboardingPageState extends State<OnboardingPage>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // SKIP (Hidden unless content finished & not last page)
-        if (!isLastPage && _isContentFinished)
-          TextButton(
-            onPressed: _finishOnboarding,
-            child: Text(
-              "Skip",
-              style: TextStyle(
-                fontFamily: 'Nunito',
-                color: Colors.grey.shade600,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          )
-        else
-          const SizedBox(width: 60),
+        // SKIP (Hidden)
+        const SizedBox(width: 60),
 
         // INDICATORS
         Row(
@@ -290,73 +336,63 @@ class _OnboardingPageState extends State<OnboardingPage>
           ),
         ),
 
-        // NEXT / START BUTTON (Disabled if audio playing)
-        IgnorePointer(
-          ignoring: !_isContentFinished,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
-            opacity: _isContentFinished ? 1.0 : 0.3,
-            child: isLastPage
-                ? ElevatedButton(
-                    onPressed: _finishOnboarding,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: accentColor,
-                      foregroundColor: Colors.white,
-                      elevation: 8,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 16,
+        // ACTION BUTTON
+        if (isLastPage)
+          IgnorePointer(
+            ignoring: !_isContentFinished,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: _isContentFinished ? 1.0 : 0.0,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.8, end: 1.0),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.elasticOut,
+                builder: (context, scale, child) {
+                  return Transform.scale(
+                    scale: scale,
+                    child: ElevatedButton(
+                      onPressed: _finishOnboarding,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: accentColor,
+                        foregroundColor: Colors.white,
+                        elevation: 8,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    child: const Text(
-                      "Start Living",
-                      style: TextStyle(
-                        fontFamily: 'Fredoka',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  )
-                : InkWell(
-                    onTap: () {
-                      int next = _currentPage + 1;
-                      _pageController.animateToPage(
-                        next,
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeInOutCubic,
-                      );
-                      _playPageContent(next); // Play next audio
-                      setState(() {
-                        _currentPage = next;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(50),
-                    child: Container(
-                      width: 55,
-                      height: 55,
-                      decoration: BoxDecoration(
-                        color: accentColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: accentColor.withValues(alpha: 0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.arrow_forward_rounded,
-                        color: Colors.white,
-                        size: 28,
+                      child: const Text(
+                        "Start Living",
+                        style: TextStyle(
+                          fontFamily: 'Fredoka',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
+                  );
+                },
+              ),
+            ),
+          )
+        else
+          // Loading Indicator (Pulsing)
+          Container(
+            width: 55,
+            height: 55,
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: accentColor.withOpacity(0.5),
+              ),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -376,13 +412,17 @@ class _OnboardingPageState extends State<OnboardingPage>
 }
 
 // ---------------------------------------------------------
-// TYPEWRITER TEXT WIDGET
+// REUSABLE WIDGETS
 // ---------------------------------------------------------
 class _TypewriterTextContent extends StatelessWidget {
   final OnboardingItem item;
   final AnimationController controller;
 
-  const _TypewriterTextContent({required this.item, required this.controller});
+  const _TypewriterTextContent({
+    super.key, // Essential for rebuilding
+    required this.item,
+    required this.controller,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -390,7 +430,6 @@ class _TypewriterTextContent extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Title (Static)
         Text(
           item.title,
           textAlign: TextAlign.center,
@@ -402,16 +441,12 @@ class _TypewriterTextContent extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-
         const SizedBox(height: 16),
-
-        // Description (Animated Typewriter)
         AnimatedBuilder(
           animation: controller,
           builder: (context, child) {
             final int textLength = item.description.length;
             final int currentLength = (controller.value * textLength).toInt();
-            // Safety check
             final int safeLength = currentLength > textLength
                 ? textLength
                 : currentLength;
@@ -438,9 +473,6 @@ class _TypewriterTextContent extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------
-// IMAGE WIDGET
-// ---------------------------------------------------------
 class _ImmersiveImage extends StatelessWidget {
   final OnboardingItem item;
   const _ImmersiveImage({required this.item});

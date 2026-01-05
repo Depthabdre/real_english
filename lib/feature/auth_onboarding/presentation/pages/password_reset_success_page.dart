@@ -9,6 +9,7 @@ class PasswordResetSuccessPage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -16,35 +17,64 @@ class PasswordResetSuccessPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(
-                Icons.check_circle_outline_rounded,
-                color: Colors.green,
-                size: 100,
+              // Celebration Icon
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.green,
+                    size: 80,
+                  ),
+                ),
               ),
               const SizedBox(height: 32),
+
               Text(
-                "Password Changed!",
-                style: theme.textTheme.headlineMedium?.copyWith(
+                "You're Back!",
+                style: TextStyle(
+                  fontFamily: 'Fredoka',
+                  fontSize: 32,
                   fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               Text(
-                "Your password has been changed successfully.",
-                style: theme.textTheme.bodyMedium,
+                "Password updated successfully.\nYour adventure is waiting.",
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.5,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
+
               ElevatedButton(
                 onPressed: () => context.go('/signin'),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  elevation: 6,
+                  shadowColor: theme.colorScheme.primary.withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Fredoka',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: const Text('Back to Sign In'),
+                child: const Text('Return to Login'),
               ),
             ],
           ),

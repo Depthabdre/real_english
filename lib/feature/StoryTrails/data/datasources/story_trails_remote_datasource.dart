@@ -36,7 +36,8 @@ class StoryTrailsRemoteDataSourceImpl implements StoryTrailsRemoteDataSource {
   final bool _useDummyData = false;
 
   // --- REFACTORED: A more general base URL for the whole API ---
-  final String _apiBaseUrl = "https://realenglish.onrender.com"; 
+  //final String _apiBaseUrl = "https://realenglish.onrender.com";
+  final String _apiBaseUrl = "http://192.168.180.123:3000";
 
   StoryTrailsRemoteDataSourceImpl({
     required this.client,

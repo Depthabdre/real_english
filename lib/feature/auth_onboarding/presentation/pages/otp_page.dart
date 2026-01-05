@@ -22,12 +22,8 @@ class _OtpPageState extends State<OtpPage> {
 
   @override
   void dispose() {
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
+    for (var c in _controllers) c.dispose();
+    for (var n in _focusNodes) n.dispose();
     super.dispose();
   }
 
@@ -40,9 +36,16 @@ class _OtpPageState extends State<OtpPage> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text("Please enter the complete 6-digit code."),
+          SnackBar(
+            content: const Text(
+              "Please enter all 6 digits.",
+              style: TextStyle(fontFamily: 'Nunito'),
+            ),
             backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
     }
@@ -51,9 +54,26 @@ class _OtpPageState extends State<OtpPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Box Color
+    final boxColor = isDark
+        ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
+        : Colors.grey.shade100;
 
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_rounded,
+            color: theme.colorScheme.onSurface,
+          ),
+          onPressed: () => context.pop(),
+        ),
+      ),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthError) {
@@ -61,12 +81,18 @@ class _OtpPageState extends State<OtpPage> {
               ..hideCurrentSnackBar()
               ..showSnackBar(
                 SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Colors.red,
+                  content: Text(
+                    state.message,
+                    style: const TextStyle(fontFamily: 'Nunito'),
+                  ),
+                  backgroundColor: Colors.redAccent,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               );
           } else if (state is OTPVerified) {
-            // Pass the reset token as an 'extra' parameter to the next page
             context.go('/reset-password', extra: state.resetToken);
           }
         },
@@ -74,36 +100,61 @@ class _OtpPageState extends State<OtpPage> {
           final isLoading = state is AuthLoading;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 20),
                 Text(
-                  "Enter Verification Code",
-                  style: theme.textTheme.headlineMedium?.copyWith(
+                  "Check Your Inbox",
+                  style: TextStyle(
+                    fontFamily: 'Fredoka',
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  "A 6-digit code was sent to\n${widget.email}",
-                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                  "We sent a key to open your account at:\n${widget.email}",
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
+
+                // OTP Boxes
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(6, (index) => _otpBox(index, theme)),
+                  children: List.generate(
+                    6,
+                    (index) => _otpBox(index, theme, boxColor),
+                  ),
                 ),
                 const SizedBox(height: 40),
+
                 ElevatedButton(
                   onPressed: isLoading ? null : _submitOtp,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    elevation: 6,
+                    shadowColor: theme.colorScheme.primary.withValues(
+                      alpha: 0.4,
+                    ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    textStyle: const TextStyle(
+                      fontFamily: 'Fredoka',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   child: isLoading
@@ -115,7 +166,7 @@ class _OtpPageState extends State<OtpPage> {
                             strokeWidth: 3,
                           ),
                         )
-                      : const Text('Verify'),
+                      : const Text('Verify Code'),
                 ),
               ],
             ),
@@ -125,25 +176,40 @@ class _OtpPageState extends State<OtpPage> {
     );
   }
 
-  Widget _otpBox(int index, ThemeData theme) {
-    return SizedBox(
-      width: 50,
-      height: 60,
+  Widget _otpBox(int index, ThemeData theme, Color fillColor) {
+    return Container(
+      width: 45,
+      height: 55,
+      decoration: BoxDecoration(
+        color: fillColor,
+        borderRadius: BorderRadius.circular(12), // Soft squares
+        // Minimal shadow for depth
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: TextFormField(
         controller: _controllers[index],
         focusNode: _focusNodes[index],
         keyboardType: TextInputType.number,
         textAlign: TextAlign.center,
         maxLength: 1,
-        style: theme.textTheme.headlineSmall,
-        decoration: InputDecoration(
+        style: TextStyle(
+          fontFamily: 'Fredoka',
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.onSurface,
+        ),
+        decoration: const InputDecoration(
           counterText: "",
-          contentPadding: EdgeInsets.zero,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
-          ),
+          border: InputBorder.none, // Remove default lines
+          contentPadding: EdgeInsets.symmetric(
+            vertical: 12,
+          ), // Center text vertically
         ),
         onChanged: (value) {
           if (value.isNotEmpty && index < 5) {

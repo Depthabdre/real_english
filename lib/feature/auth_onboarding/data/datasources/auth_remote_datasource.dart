@@ -43,7 +43,9 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   final AuthLocalDatasource localDatasource;
   final GoogleSignIn googleSignInInstance;
 
-  final String _baseUrl = "https://realenglish.onrender.com/api/auth";
+  // final String _baseUrl = "https://realenglish.onrender.com/api/auth";
+
+  final String _baseUrl = "http://192.168.180.123:3000/api/auth";
 
   AuthRemoteDatasourceImpl({
     required this.client,

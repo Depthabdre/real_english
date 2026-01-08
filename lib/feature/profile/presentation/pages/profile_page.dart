@@ -23,260 +23,275 @@ class ProfilePage extends StatelessWidget {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is Unauthenticated) {
-          // Redirect to Login on success
-          context.go('login');
+          context.go('/signin'); // Corrected route to /signin
         }
       },
       child: BlocProvider(
         create: (context) => sl<ProfileBloc>()..add(LoadUserProfile()),
         child: Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: AppBar(
-            title: Text(
-              "My Journey",
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            centerTitle: false,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            actions: [
-              // Theme Toggle
-              Container(
-                margin: const EdgeInsets.only(right: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Theme.of(context).shadowColor.withValues(alpha: 0.2),
-                  ),
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                    color: isDark ? Colors.amber : Colors.indigo,
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    context.read<ThemeCubit>().toggleTheme();
-                  },
-                ),
-              ),
-            ],
-          ),
-          body: BlocBuilder<ProfileBloc, ProfileState>(
-            builder: (context, state) {
-              if (state is ProfileLoading) {
-                return Center(
-                  child: CircularProgressIndicator(
-                    color: Theme.of(context).primaryColor,
-                  ),
-                );
-              }
+          // Custom Slivers for a "Natural Scroll" feel
+          body: SafeArea(
+            child: BlocBuilder<ProfileBloc, ProfileState>(
+              builder: (context, state) {
+                if (state is ProfileLoading) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          "Entering your garden...",
+                          style: TextStyle(
+                            fontFamily: 'Nunito',
+                            color: Theme.of(context).colorScheme.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-              if (state is ProfileError) {
-                return Center(child: Text(state.message));
-              }
+                if (state is ProfileError) {
+                  return Center(child: Text(state.message));
+                }
 
-              if (state is ProfileLoaded) {
-                final user = state.user;
+                if (state is ProfileLoaded) {
+                  final user = state.user;
 
-                return SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  child: Column(
-                    children: [
-                      // 1. Header
-                      ProfileHeader(
-                        identity: user.identity,
-                        onEditPressed: () => _showEditSheet(context, user),
+                  return CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      // 1. Custom App Bar with Theme Toggle
+                      SliverAppBar(
+                        floating: true,
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        title: Text(
+                          "My Sanctuary",
+                          style: TextStyle(
+                            fontFamily: 'Fredoka', // Playful Font
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        actions: [
+                          _buildThemeToggle(context, isDark),
+                          const SizedBox(width: 16),
+                        ],
                       ),
 
-                      const SizedBox(height: 30),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 10),
 
-                      // 2. Garden Card
-                      GardenShowcaseCard(
-                        growth: user.growth,
-                        habit: user.habit,
+                              // 2. Identity Header
+                              ProfileHeader(
+                                identity: user.identity,
+                                onEditPressed: () =>
+                                    _showEditSheet(context, user),
+                              ),
+
+                              const SizedBox(height: 32),
+
+                              // 3. The Garden (Main Hero)
+                              Text(
+                                "Your Growth",
+                                style: TextStyle(
+                                  fontFamily: 'Fredoka',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              GardenShowcaseCard(
+                                growth: user.growth,
+                                habit: user.habit,
+                              ),
+
+                              const SizedBox(height: 32),
+
+                              // 4. Stats (Nutrients)
+                              Text(
+                                "Nutrients Absorbed",
+                                style: TextStyle(
+                                  fontFamily: 'Fredoka',
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ProfileStatsRow(stats: user.growth.stats),
+
+                              const SizedBox(height: 48),
+
+                              // 5. Logout
+                              _buildLogoutButton(context),
+
+                              const SizedBox(height: 40),
+                            ],
+                          ),
+                        ),
                       ),
-
-                      const SizedBox(height: 30),
-
-                      // 3. Stats
-                      ProfileStatsRow(stats: user.growth.stats),
-
-                      const SizedBox(height: 40),
-
-                      // 4. Logout Button
-                      _buildLogoutButton(context),
-
-                      const SizedBox(height: 50),
                     ],
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            },
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// 🌟 Consistent, Primary-Themed Logout Button
+  Widget _buildThemeToggle(BuildContext context, bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        icon: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: Icon(
+            isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+            key: ValueKey(isDark),
+            color: isDark ? Colors.amber : Colors.indigo,
+            size: 24,
+          ),
+        ),
+        onPressed: () {
+          context.read<ThemeCubit>().toggleTheme();
+        },
+      ),
+    );
+  }
+
   Widget _buildLogoutButton(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: OutlinedButton.icon(
+    return Center(
+      child: TextButton.icon(
         onPressed: () => _showLogoutConfirmation(context),
-        icon: Icon(Icons.logout_rounded, size: 22, color: theme.primaryColor),
+        icon: Icon(
+          Icons.logout_rounded,
+          size: 20,
+          color: theme.colorScheme.error,
+        ),
         label: Text(
-          "Log Out",
+          "Take a Break (Log Out)",
           style: TextStyle(
-            color: theme.primaryColor,
+            fontFamily: 'Nunito',
+            color: theme.colorScheme.error,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          side: BorderSide(
-            color: theme.primaryColor.withValues(alpha: 0.3),
-            width: 1.5,
-          ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          backgroundColor: theme.colorScheme.error.withValues(alpha: 0.05),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          backgroundColor: theme.primaryColor.withValues(alpha: 0.05),
         ),
       ),
     );
   }
 
-  /// 🛑 Modern Confirmation Modal
   void _showLogoutConfirmation(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      builder: (ctx) => AlertDialog(
         backgroundColor: theme.cardColor,
-        elevation: 10,
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icon Circle
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.primaryColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.waving_hand_rounded,
-                  color: theme.primaryColor,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Title
-              Text(
-                "See you soon?",
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 22,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Subtitle
-              Text(
-                "Your garden will be waiting for you when you return.",
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: isDark ? Colors.white70 : Colors.grey[700],
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Buttons Row
-              Row(
-                children: [
-                  // Cancel
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        "Cancel",
-                        style: TextStyle(
-                          color: isDark ? Colors.white70 : Colors.grey[800],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Confirm
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(ctx); // Close dialog
-                        context.read<AuthBloc>().add(SignOutRequested());
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        "Log Out",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text(
+          "Leaving so soon?",
+          style: TextStyle(fontFamily: 'Fredoka'),
         ),
+        content: const Text(
+          "Your garden will pause growing until you return.",
+          style: TextStyle(fontFamily: 'Nunito'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              "Stay",
+              style: TextStyle(
+                fontFamily: 'Nunito',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthBloc>().add(SignOutRequested());
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              "Log Out",
+              style: TextStyle(
+                fontFamily: 'Nunito',
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  // ... inside ProfilePage class ...
 
   void _showEditSheet(BuildContext context, dynamic user) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
+
+      // --- FIX 1: SIT ON TOP OF NAV BAR ---
+      useRootNavigator:
+          true, // This ensures it covers the Bottom Navigation Bar
+      // --- FIX 2: FULL HEIGHT ---
+      isScrollControlled: true, // Allows the sheet to expand fully
+
       backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       builder: (_) {
-        return BlocProvider.value(
-          value: context.read<ProfileBloc>(),
-          child: EditProfileSheet(currentUser: user),
+        return Padding(
+          // Ensure it respects the keyboard (viewInsets)
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: BlocProvider.value(
+            value: context.read<ProfileBloc>(),
+            child: EditProfileSheet(currentUser: user),
+          ),
         );
       },
     );

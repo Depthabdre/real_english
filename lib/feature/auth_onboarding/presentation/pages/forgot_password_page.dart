@@ -70,7 +70,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
               );
           } else if (state is ForgetPasswordEmailSent) {
-            context.go('/otppage', extra: _emailController.text.trim());
+            context.push('/otppage', extra: _emailController.text.trim());
           }
         },
         builder: (context, state) {

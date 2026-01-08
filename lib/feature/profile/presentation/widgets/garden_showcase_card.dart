@@ -17,35 +17,63 @@ class GardenShowcaseCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    // --- FIX 1: BACKGROUND COLOR MATCHING ---
+    // Matches the provided pot image background (Black in dark mode, White in light)
+    final backgroundColor = isDark ? Colors.black : Colors.white;
+
+    // Ensure text is visible against the solid background
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.grey[400] : Colors.grey[600];
+
     return Container(
       width: double.infinity,
       height: 380,
       decoration: BoxDecoration(
-        // CONSISTENT CARD COLOR (No Gradient)
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: isDark ? Border.all(color: Colors.white10) : null,
-        // Standard Shadow similar to other cards
-        boxShadow: isDark
-            ? []
-            : [
-                BoxShadow(
-                  color: theme.shadowColor.withValues(alpha: 0.5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(32),
+        // Subtle border to separate the black card from a dark background if needed
+        border: isDark
+            ? Border.all(color: Colors.white.withValues(alpha: 0.1))
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Stack(
         children: [
-          // 1. Streak Badge
+          // --- FIX 2: IMAGE POSITIONING ---
+          // Aligned to BOTTOM CENTER so it doesn't float up and block the text.
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 20, // Pinned to bottom
+            top: 100, // Push it down so it doesn't touch the text area
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 800),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
+              child: Image.asset(
+                GardenAssets.getTreeImage(growth.treeStage, isDark),
+                key: ValueKey('${growth.treeStage}_$isDark'),
+                fit: BoxFit.contain, // Ensures the pot fits within the box
+                alignment: Alignment.bottomCenter, // Anchors pot to the bottom
+              ),
+            ),
+          ),
+
+          // --- FIX 3: TEXT ON TOP ---
+          // Streak Badge (Top Right)
           Positioned(
             top: 24,
             right: 24,
-            child: _buildStreakBadge(context, isDark),
+            child: _buildStreakBadge(context, isDark, textColor),
           ),
 
-          // 2. Stage Label
+          // Stage Label (Top Left)
           Positioned(
             top: 24,
             left: 24,
@@ -53,37 +81,26 @@ class GardenShowcaseCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Current Stage",
-                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 12),
+                  "Current Growth",
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: subTextColor,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   growth.treeStage.replaceAll('_', ' ').toUpperCase(),
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    // Use primary color in light mode, white in dark
-                    color: isDark ? Colors.white : theme.primaryColor,
+                  style: TextStyle(
+                    fontFamily: 'Fredoka',
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: textColor, // High contrast text
+                    letterSpacing: 1,
                   ),
                 ),
               ],
-            ),
-          ),
-
-          // 3. The Tree
-          Positioned(
-            top: 100,
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 700),
-              child: Image.asset(
-                GardenAssets.getTreeImage(growth.treeStage, isDark),
-                key: ValueKey('${growth.treeStage}_$isDark'),
-                fit: BoxFit.contain,
-                alignment: Alignment.bottomCenter,
-              ),
             ),
           ),
         ],
@@ -91,23 +108,19 @@ class GardenShowcaseCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStreakBadge(BuildContext context, bool isDark) {
-    final theme = Theme.of(context);
+  Widget _buildStreakBadge(BuildContext context, bool isDark, Color textColor) {
     final isActive = habit.isStreakActive;
-
     final accentColor = isActive
         ? (isDark ? const Color(0xFFFFD600) : const Color(0xFFFF6D00))
         : Colors.grey;
 
-    // Use a subtle background for the badge so it stands out on the card
-    final backgroundColor = isDark
-        ? Colors.white.withValues(alpha: 0.1)
-        : theme.scaffoldBackgroundColor;
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        // Use a contrasting background for the badge
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: accentColor.withValues(alpha: 0.3)),
       ),
@@ -119,13 +132,14 @@ class GardenShowcaseCard extends StatelessWidget {
             color: accentColor,
             size: 18,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Text(
             "${habit.currentStreak} Day Streak",
             style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: theme.textTheme.bodyLarge?.color,
-              fontSize: 14,
+              fontFamily: 'Nunito',
+              fontWeight: FontWeight.w800,
+              color: textColor,
+              fontSize: 13,
             ),
           ),
         ],

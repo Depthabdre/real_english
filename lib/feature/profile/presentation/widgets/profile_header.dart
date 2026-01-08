@@ -16,8 +16,7 @@ class ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // --- FIX LOGIC START ---
-    // Check if the URL is actually a valid web link
+    // Validate URL Logic
     final bool hasValidUrl =
         identity.avatarUrl.isNotEmpty &&
         (identity.avatarUrl.startsWith('http') ||
@@ -26,71 +25,92 @@ class ProfileHeader extends StatelessWidget {
     final ImageProvider backgroundImage = hasValidUrl
         ? CachedNetworkImageProvider(identity.avatarUrl)
         : const AssetImage('assets/images/default_avatar.png') as ImageProvider;
-    // --- FIX LOGIC END ---
 
     return Row(
       children: [
-        // Avatar
-        Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: theme.primaryColor.withValues(alpha: 0.5),
-              width: 2,
+        // Avatar with "Organic" Border
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4), // Gap between image and ring
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                  width: 3,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 36,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                backgroundImage: backgroundImage,
+              ),
             ),
-          ),
-          child: CircleAvatar(
-            radius: 32,
-            backgroundColor: theme.cardColor,
-            // Use the safe provider
-            backgroundImage: backgroundImage,
-          ),
+            // Edit Badge (Floating Bubble)
+            GestureDetector(
+              onTap: onEditPressed,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: theme.scaffoldBackgroundColor,
+                    width: 2,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.edit_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
+              ),
+            ),
+          ],
         ),
 
-        const SizedBox(width: 16),
+        const SizedBox(width: 20),
 
-        // Name Info
+        // Text Info
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 identity.fullName,
-                style: theme.textTheme.titleLarge?.copyWith(fontSize: 22),
+                style: TextStyle(
+                  fontFamily: 'Fredoka',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 4),
-              Text(
-                "Gardener since ${identity.joinedAt.year}",
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer.withValues(
+                    alpha: 0.5,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  "Gardener since ${identity.joinedAt.year}",
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSecondaryContainer,
+                  ),
                 ),
               ),
             ],
-          ),
-        ),
-
-        // Edit Button
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onEditPressed,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: theme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.edit_outlined,
-                color: theme.primaryColor,
-                size: 22,
-              ),
-            ),
           ),
         ),
       ],

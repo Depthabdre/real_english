@@ -229,7 +229,7 @@ class _SignInPageState extends State<SignInPage> {
                           child: TextButton(
                             onPressed: isLoading
                                 ? null
-                                : () => context.go('/forgot-password'),
+                                : () => context.push('/forgot-password'),
                             child: Text(
                               "Forgot Password?",
                               style: TextStyle(
@@ -281,7 +281,7 @@ class _SignInPageState extends State<SignInPage> {
                             TextButton(
                               onPressed: isLoading
                                   ? null
-                                  : () => context.go('/signup'),
+                                  : () => context.push('/signup'),
                               child: Text(
                                 'Begin the Process',
                                 style: TextStyle(

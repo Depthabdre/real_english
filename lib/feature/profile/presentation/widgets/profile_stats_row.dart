@@ -12,20 +12,20 @@ class ProfileStatsRow extends StatelessWidget {
       children: [
         Expanded(
           child: _StatCard(
-            // --- UPDATED TEXT HERE ---
-            label: "Stories Listened",
+            label: "Stories\nAbsorbed", // "Absorbed" fits the philosophy
             value: "${stats.storiesCompleted}",
-            icon: Icons.headphones_rounded, // Changed icon to match "Listened"
-            color: const Color(0xFF1E88E5), // Blue
+            icon: Icons.auto_stories_rounded,
+            color: const Color(0xFF6C63FF), // Primary Purple
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: _StatCard(
-            label: "Shorts Watched",
+            label:
+                "Moments\nWatched", // "Moments" feels less digital than "Shorts"
             value: "${stats.shortsWatched}",
-            icon: Icons.play_circle_fill_rounded,
-            color: const Color(0xFF43A047), // Green
+            icon: Icons.smart_display_rounded,
+            color: const Color(0xFFFF6584), // Secondary Pink
           ),
         ),
       ],
@@ -53,46 +53,57 @@ class _StatCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(20),
+      height: 160, // Fixed height for uniformity
       decoration: BoxDecoration(
         color: theme.cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: isDark ? Border.all(color: Colors.white10) : null,
-        boxShadow: isDark
-            ? []
-            : [
-                BoxShadow(
-                  color: theme.shadowColor.withValues(alpha: 0.5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Icon Bubble
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(height: 16),
-          Text(
-            value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
+
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontFamily: 'Fredoka',
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.2,
+                ),
+              ),
+            ],
           ),
         ],
       ),

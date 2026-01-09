@@ -244,10 +244,13 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
   @override
   Future<void> logout() async {
-    // For a stateless API, logout is a client-side operation.
-    // We just clear the cached token.
     try {
+      // 1. Clear the Access Token
       await localDatasource.clearToken();
+
+      // 2. Clear the Cached User Data (CRITICAL)
+      // This ensures 'getLastUser()' returns null, forcing the next session to be fresh.
+      await localDatasource.clearUser();
     } catch (e) {
       throw ServerException(message: 'Failed to clear local session.');
     }

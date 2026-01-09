@@ -28,6 +28,7 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
 
   final AudioPlayer _audioPlayer;
   StreamSubscription? _playerStateSubscription;
+  final Map<String, Future<String>> _activeDownloads = {};
 
   StoryPlayerBloc({
     required this.getAudioForSegmentUseCase,
@@ -260,110 +261,128 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     }
   }
 
-  // 3. FULLY UPDATED: _playSegmentAndPreloadNext
+  // 3. UPDATED LOGIC: _playSegmentAndPreloadNext
   Future<void> _playSegmentAndPreloadNext(
     Emitter<StoryPlayerState> emit,
     StoryTrail trail,
     StoryProgress progress,
   ) async {
     if (state is! StoryPlayerDisplay) return;
-
-    // 1. Snapshot current state before making changes
     final currentState = state as StoryPlayerDisplay;
     final currentSegment = trail.segments[progress.currentSegmentIndex];
 
-    // 2. RESET UI (Hide Text)
-    // We emit a state with playingSegmentId = null.
-    // The UI will show an empty text box or loading spinner while we buffer audio.
+    // Reset UI
     final loadingState = currentState.copyWith(
-      playingSegmentId: null, // <--- Hides text
+      playingSegmentId: null,
       currentAudioDuration: null,
     );
     emit(loadingState);
 
-    // 3. HANDLE AUDIO LOGIC
+    // --- PLAY CURRENT SEGMENT ---
     if (currentSegment.type == SegmentType.narration) {
       String? audioUrl = loadingState.audioCache[currentSegment.id];
 
-      // A. Fetch URL if missing
+      // 1. Fetch if missing (Using our new Smart Helper)
       if (audioUrl == null) {
-        final apiEndpoint =
-            currentSegment.audioEndpoint ??
-            '/api/story-trails/segments/${currentSegment.id}/audio';
+        try {
+          audioUrl = await _fetchOrGetActiveDownload(
+            currentSegment.id,
+            currentSegment.audioEndpoint,
+          );
 
-        final result = await getAudioForSegmentUseCase(
-          GetAudioForSegmentParams(audioEndpoint: apiEndpoint),
-        );
-
-        await result.fold(
-          (failure) async {
-            print("Audio fetch failed: ${failure.message}");
-          },
-          (url) async {
-            audioUrl = url;
-            add(_AudioPreloaded(segmentId: currentSegment.id, audioUrl: url));
-          },
-        );
+          // Add to cache event
+          if (audioUrl != null) {
+            add(
+              _AudioPreloaded(segmentId: currentSegment.id, audioUrl: audioUrl),
+            );
+          }
+        } catch (e) {
+          print("Audio fetch error: $e");
+        }
       }
 
-      // B. Load & Play Audio
+      // 2. Play
       if (audioUrl != null) {
         try {
-          // setUrl returns the exact duration of the MP3
-          final duration = await _audioPlayer.setUrl(audioUrl!);
-
-          // Start playing
+          final duration = await _audioPlayer.setUrl(audioUrl);
           _audioPlayer.play();
 
-          // C. SHOW TEXT & SYNC (Crucial Step)
-          // We assume 'loadingState' has the latest cache.
-          // We now reveal the text by setting playingSegmentId.
           emit(
             loadingState.copyWith(
-              playingSegmentId: currentSegment.id, // <--- Shows text
-              currentAudioDuration: duration, // <--- Syncs speed
-              // Ensure cache is preserved if it was updated during fetch
-              audioCache: audioUrl != null
-                  ? {...loadingState.audioCache, currentSegment.id: audioUrl!}
-                  : loadingState.audioCache,
+              playingSegmentId: currentSegment.id,
+              currentAudioDuration: duration,
+              // Ensure cache is updated in state
+              audioCache: {
+                ...loadingState.audioCache,
+                currentSegment.id: audioUrl,
+              },
             ),
           );
         } catch (e) {
-          print("Audio playback error: $e");
-          // Fallback: Show text even if audio fails
           emit(loadingState.copyWith(playingSegmentId: currentSegment.id));
         }
       } else {
-        // Fallback: No URL found, show text immediately
         emit(loadingState.copyWith(playingSegmentId: currentSegment.id));
       }
     } else {
-      // 4. HANDLE CHALLENGE (No Audio)
-      // Just show the text immediately
       emit(loadingState.copyWith(playingSegmentId: currentSegment.id));
     }
 
-    // 5. PRELOAD NEXT (Optimization)
+    // --- PRELOAD NEXT SEGMENT ---
     final preloadIndex = progress.currentSegmentIndex + 1;
     if (preloadIndex < trail.segments.length) {
       final nextSegment = trail.segments[preloadIndex];
 
       if (nextSegment.type == SegmentType.narration &&
           currentState.audioCache[nextSegment.id] == null) {
-        final nextEndpoint =
-            nextSegment.audioEndpoint ??
-            '/api/story-trails/segments/${nextSegment.id}/audio';
-
-        getAudioForSegmentUseCase(
-          GetAudioForSegmentParams(audioEndpoint: nextEndpoint),
-        ).then((result) {
-          result.fold(
-            (failure) => print("Preload failed: ${failure.message}"),
-            (url) =>
-                add(_AudioPreloaded(segmentId: nextSegment.id, audioUrl: url)),
-          );
-        });
+        // Use the same helper! It will add it to _activeDownloads map.
+        // We don't await this, we let it run in background.
+        _fetchOrGetActiveDownload(nextSegment.id, nextSegment.audioEndpoint)
+            .then((url) {
+              if (url != null) {
+                add(_AudioPreloaded(segmentId: nextSegment.id, audioUrl: url));
+              }
+            })
+            .catchError((_) {}); // Ignore errors in background preload
       }
     }
+  }
+
+  // 2. HELPER METHOD: The "Smart" Downloader
+  Future<String?> _fetchOrGetActiveDownload(
+    String segmentId,
+    String? endpoint,
+  ) async {
+    // Case A: Download is already happening. Join it!
+    if (_activeDownloads.containsKey(segmentId)) {
+      print("🚀 Joining existing download for $segmentId");
+      return _activeDownloads[segmentId];
+    }
+
+    // Case B: Start a new download
+    final apiEndpoint =
+        endpoint ?? '/api/story-trails/segments/$segmentId/audio';
+
+    // Create the future
+    final future =
+        getAudioForSegmentUseCase(
+          GetAudioForSegmentParams(audioEndpoint: apiEndpoint),
+        ).then((result) {
+          // Clean up map when done (success or fail) so we don't hold old futures
+          _activeDownloads.remove(segmentId);
+
+          return result.fold(
+            (failure) {
+              print("Download failed: ${failure.message}");
+              throw failure; // Propagate error
+            },
+            (url) => url, // Return success URL
+          );
+        });
+
+    // Store it in the map
+    _activeDownloads[segmentId] = future;
+
+    return future;
   }
 }

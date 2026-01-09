@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/level_completion_status.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
 import 'package:real_english/feature/auth_onboarding/data/datasources/auth_local_datasource.dart';
+import 'package:real_english/feature/auth_onboarding/data/models/user_model.dart';
 
 import '../../../../core/errors/exception.dart';
 import '../../../../core/errors/failures.dart';
@@ -225,7 +226,7 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
           trailId,
         );
 
-        // 2. Mark Story as Completed in Local Cache (Existing Logic)
+        // 2. Mark Story as Completed in Local Story Cache
         final progressEither = await getUserStoryProgress(trailId);
         progressEither.fold((_) => null, (progress) {
           final updatedProgress = (progress as StoryProgressModel).copyWith(
@@ -235,35 +236,10 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
           localDataSource.cacheUserStoryProgress(updatedProgress);
         });
 
-        // --- NEW FIX STARTS HERE ---
-        // 3. Update User Profile Cache with New Level/XP
-        // We fetch the current profile, update fields, and save it back.
-        try {
-          final profileEither = await getUserLearningProfile();
-          profileEither.fold(
-            (_) => null, // Ignore failures
-            (currentProfile) async {
-              final updatedProfile =
-                  (currentProfile as UserLearningProfileModel).copyWith(
-                    // Update Level from Server Response
-                    currentLearningLevel: levelStatus.newLevel,
-                    // Add Completed ID
-                    completedTrailIds: [
-                      ...currentProfile.completedTrailIds,
-                      trailId,
-                    ],
-                    // Add XP (You can pass actual XP from server later)
-                    xpGlobal: currentProfile.xpGlobal + 50,
-                  );
-
-              await localDataSource.cacheUserLearningProfile(updatedProfile);
-              print("✅ Local Profile Updated: Level ${levelStatus.newLevel}");
-            },
-          );
-        } catch (e) {
-          print("⚠️ Failed to sync profile: $e");
+        // 3. Update User Profiles (Sync Logic)
+        if (levelStatus.didLevelUp) {
+          await _syncLevelUpToLocalCaches(levelStatus.newLevel);
         }
-        // --- NEW FIX ENDS HERE ---
 
         return Right(levelStatus);
       } on ServerException catch (e) {
@@ -273,6 +249,36 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
       return Left(
         ServerFailure(message: 'You must be online to complete a story.'),
       );
+    }
+  }
+
+  /// Helper to keep both Story Cache and Auth Cache in sync when leveling up
+  Future<void> _syncLevelUpToLocalCaches(int newLevel) async {
+    try {
+      // A. Update Story Learning Profile
+      final profileEither = await getUserLearningProfile();
+      profileEither.fold((_) => null, (currentProfile) async {
+        final updatedProfile = (currentProfile as UserLearningProfileModel)
+            .copyWith(currentLearningLevel: newLevel);
+        await localDataSource.cacheUserLearningProfile(updatedProfile);
+      });
+
+      // B. Update Auth User Cache (CRITICAL FIX)
+      // This ensures if the user restarts the app, AuthLocalDatasource has the new level.
+      final currentUser = await authLocalDataSource.getLastUser();
+      if (currentUser != null) {
+        // Create a new UserModel with the updated level
+        final updatedUser = UserModel(
+          id: currentUser.id,
+          fullName: currentUser.fullName,
+          email: currentUser.email,
+          level: newLevel, // <--- UPDATE LEVEL HERE
+        );
+        await authLocalDataSource.cacheUser(updatedUser);
+        print("✅ Auth Cache Updated to Level $newLevel");
+      }
+    } catch (e) {
+      print("⚠️ Failed to sync local caches: $e");
     }
   }
 
@@ -291,55 +297,47 @@ class StoryTrailsRepositoryImpl implements StoryTrailsRepository {
   @override
   Future<Either<Failures, UserLearningProfile>> getUserLearningProfile() async {
     try {
-      // 1. First, check if we have specific Story progress cached (e.g., offline progress)
+      // 1. Check Local Story Cache (The most specific data)
       final localProfile = await localDataSource.getCachedUserLearningProfile();
-
       if (localProfile != null) {
-        return Right(localProfile);
+        // Optional: Verify this profile belongs to the currently logged-in user
+        // to prevent data leaking between users.
+        final authUser = await authLocalDataSource.getLastUser();
+        if (authUser != null && authUser.id == localProfile.userId) {
+          return Right(localProfile);
+        }
+        // If IDs don't match, we fall through to reload from Auth Cache
       }
 
-      // 2. If Story Cache is empty (Fresh Install/Login), check Auth Cache!
-      // This prevents resetting to Level 1 if the user is actually Level 5.
-      print(
-        "🔹 Story Cache empty. Checking Auth Cache for existing user data...",
-      );
+      // 2. Fallback: Load from Auth Local Cache (Your requested fix)
+      // This works because Login/Signup/GoogleSignIn all save to this cache.
       final authUser = await authLocalDataSource.getLastUser();
 
       if (authUser != null) {
-        print("✅ Found Auth User: ID ${authUser.id}, Level ${authUser.level}");
+        print(
+          "🔹 Initializing Profile from Auth Cache: Level ${authUser.level}",
+        );
 
-        // Map Auth User Data to a new Learning Profile
         final syncedProfile = UserLearningProfileModel(
           userId: authUser.id,
-          // HERE IS THE FIX: Use the level from Auth, not '1'
-          currentLearningLevel: authUser.level,
+          currentLearningLevel: authUser.level, // <--- Get level from Auth
           xpGlobal: 0,
-          // Note: Specific completed trails might be lost on uninstall unless
-          // your backend 'User' model also returns a list of completed IDs.
           completedTrailIds: [],
         );
 
-        // Immediately cache this so next time we hit step 1
+        // Save to Story cache so step 1 works next time
         await localDataSource.cacheUserLearningProfile(syncedProfile);
-
         return Right(syncedProfile);
       }
 
-      // 3. If Auth Cache is also empty (New User / Error), use Default
-      print("🔸 No Auth data found. Creating default Level 1 profile.");
-
-      // Try to get at least the Token ID, otherwise use placeholder
-      // (Though usually, if you are on this page, you have a token)
-      const defaultUserId = 'unknown_user_id';
-
+      // 3. Last Resort: Default
+      print("⚠️ No user data found. Defaulting to Level 1.");
       final defaultProfile = const UserLearningProfileModel(
-        userId: defaultUserId,
+        userId: 'unknown',
         currentLearningLevel: 1,
         xpGlobal: 0,
         completedTrailIds: [],
       );
-
-      await localDataSource.cacheUserLearningProfile(defaultProfile);
       return Right(defaultProfile);
     } on CacheException catch (e) {
       return Left(CacheFailure(message: e.message));

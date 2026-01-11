@@ -23,7 +23,6 @@ import 'data/datasources/profile_local_datasource.dart';
 import 'data/datasources/profile_remote_datasource.dart';
 
 // External Dependencies
-import '../../core/network/network_info.dart';
 import '../auth_onboarding/data/datasources/auth_local_datasource.dart';
 
 Future<void> initProfileFeature() async {

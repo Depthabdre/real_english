@@ -20,7 +20,7 @@ class ImmersionRemoteDataSourceImpl implements ImmersionRemoteDataSource {
 
   // Replace with your actual IP address
   // final String _apiBaseUrl = "https://realenglish.onrender.com";
-  final String _apiBaseUrl = "http://192.168.180.123:3000";
+  final String _apiBaseUrl = "http://10.252.35.123:3000";
 
   ImmersionRemoteDataSourceImpl({
     required this.client,

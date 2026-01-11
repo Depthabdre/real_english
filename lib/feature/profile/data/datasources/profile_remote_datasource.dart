@@ -17,7 +17,7 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
 
   // Your Backend IP
   // final String _apiBaseUrl = "https://realenglish.onrender.com/api/profile";
-  final String _apiBaseUrl = "http://192.168.180.123:3000/api/profile";
+  final String _apiBaseUrl = "http://10.252.35.123:3000/api/profile";
 
   ProfileRemoteDataSourceImpl({
     required this.client,

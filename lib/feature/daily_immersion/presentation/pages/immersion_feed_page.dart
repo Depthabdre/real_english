@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:preload_page_view/preload_page_view.dart';
+import 'package:real_english/feature/daily_immersion/presentation/widgets/shorts_skeleton_loader.dart';
 
 import '../../../../app/injection_container.dart';
 import '../bloc/immersion_bloc.dart';
@@ -49,9 +50,8 @@ class _ImmersionViewState extends State<_ImmersionView> {
     return BlocBuilder<ImmersionBloc, ImmersionState>(
       builder: (context, state) {
         if (state is ImmersionLoading) {
-          return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF64B5F6)),
-          );
+          // Instead of a spinner, show the skeleton
+          return const ShortsSkeletonLoader();
         }
 
         if (state is ImmersionError) {

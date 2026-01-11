@@ -134,10 +134,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       fontWeight: FontWeight.w600,
                     ),
                     validator: (value) {
-                      if (value == null || value.isEmpty)
+                      if (value == null || value.isEmpty) {
                         return 'Email is required';
-                      if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value))
+                      }
+                      if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
                         return 'Please enter a valid email';
+                      }
                       return null;
                     },
                     decoration: InputDecoration(

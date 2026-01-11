@@ -45,7 +45,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
   // final String _baseUrl = "https://realenglish.onrender.com/api/auth";
 
-  final String _baseUrl = "http://192.168.180.123:3000/api/auth";
+  final String _baseUrl = "http://10.252.35.123:3000/api/auth";
 
   AuthRemoteDatasourceImpl({
     required this.client,
@@ -220,11 +220,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
           .post(
             Uri.parse('$_baseUrl/reset-password'),
             headers: {'Content-Type': 'application/json; charset=UTF-8'},
-            body: json.encode({
-              // Keys match the backend: token, newPassword
-              'token': token,
-              'newPassword': newPassword,
-            }),
+            body: json.encode({'token': token, 'newPassword': newPassword}),
           )
           .timeout(const Duration(seconds: 30));
 

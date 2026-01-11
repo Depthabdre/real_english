@@ -22,8 +22,12 @@ class _OtpPageState extends State<OtpPage> {
 
   @override
   void dispose() {
-    for (var c in _controllers) c.dispose();
-    for (var n in _focusNodes) n.dispose();
+    for (var c in _controllers) {
+      c.dispose();
+    }
+    for (var n in _focusNodes) {
+      n.dispose();
+    }
     super.dispose();
   }
 

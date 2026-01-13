@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:preload_page_view/preload_page_view.dart';
-import 'package:real_english/feature/daily_immersion/presentation/widgets/shorts_skeleton_loader.dart';
-
 import '../../../../app/injection_container.dart';
 import '../bloc/immersion_bloc.dart';
 import '../widgets/immersion_video_item.dart';
-import '../widgets/fast_scroll_physics.dart'; // Ensure this matches file name
+import '../widgets/shorts_skeleton_loader.dart';
+import '../widgets/fast_scroll_physics.dart';
 
 class ImmersionFeedPage extends StatelessWidget {
   const ImmersionFeedPage({super.key});
@@ -14,7 +13,8 @@ class ImmersionFeedPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.black, // Video background
+      // No AppBar, we want full immersion
       body: BlocProvider(
         create: (_) => sl<ImmersionBloc>()..add(const LoadImmersionFeed()),
         child: const _ImmersionView(),
@@ -50,7 +50,6 @@ class _ImmersionViewState extends State<_ImmersionView> {
     return BlocBuilder<ImmersionBloc, ImmersionState>(
       builder: (context, state) {
         if (state is ImmersionLoading) {
-          // Instead of a spinner, show the skeleton
           return const ShortsSkeletonLoader();
         }
 
@@ -67,7 +66,6 @@ class _ImmersionViewState extends State<_ImmersionView> {
                 key: const PageStorageKey('immersion_feed'),
                 controller: _pageController,
                 scrollDirection: Axis.vertical,
-                // Apply the sensitive physics here
                 physics: const FastScrollPhysics(),
                 preloadPagesCount: 1,
                 itemCount: state.shorts.length,
@@ -78,7 +76,6 @@ class _ImmersionViewState extends State<_ImmersionView> {
                 },
                 itemBuilder: (context, index) {
                   final short = state.shorts[index];
-                  // ValueKey is crucial for recycling video players correctly
                   return ImmersionVideoItem(
                     key: ValueKey('short-${short.id}'),
                     short: short,
@@ -87,8 +84,8 @@ class _ImmersionViewState extends State<_ImmersionView> {
               ),
 
               if (bloc.isLoadingMore)
-                const Positioned(
-                  bottom: 24,
+                Positioned(
+                  bottom: 100, // Move up above Nav Bar
                   left: 0,
                   right: 0,
                   child: Center(
@@ -96,8 +93,8 @@ class _ImmersionViewState extends State<_ImmersionView> {
                       width: 28,
                       height: 28,
                       child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Color(0xFF64B5F6),
+                        strokeWidth: 3,
+                        color: Theme.of(context).colorScheme.secondary,
                       ),
                     ),
                   ),
@@ -115,9 +112,12 @@ class _ImmersionViewState extends State<_ImmersionView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.signal_wifi_off, color: Colors.white54, size: 48),
+          Icon(Icons.signal_wifi_off_rounded, color: Colors.white54, size: 48),
           const SizedBox(height: 16),
-          Text(message, style: const TextStyle(color: Colors.white70)),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.white70, fontFamily: 'Nunito'),
+          ),
           const SizedBox(height: 20),
           OutlinedButton(
             onPressed: () =>
@@ -125,6 +125,9 @@ class _ImmersionViewState extends State<_ImmersionView> {
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: const BorderSide(color: Colors.white54),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
             child: const Text('Retry'),
           ),

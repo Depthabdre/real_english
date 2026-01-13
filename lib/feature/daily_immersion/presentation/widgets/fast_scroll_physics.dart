@@ -32,7 +32,7 @@ class FastScrollPhysics extends ScrollPhysics {
     // If velocity is high, let standard flinging handle it.
     // If velocity is low (drag and drop), we check for "slight snips".
 
-    if (velocity.abs() > 300) {
+    if (velocity.abs() > 800) {
       // Standard fling behavior if user flicks fast
       targetPixels = velocity > 0
           ? (closestPage + (delta > 0 ? 1 : 0)) * pageSize
@@ -42,7 +42,7 @@ class FastScrollPhysics extends ScrollPhysics {
       // We set a tiny threshold (e.g., 10 pixels).
       // If you moved just 10 pixels away from the center, we commit to the move.
 
-      const double sensitivityThreshold = 10.0;
+      final double sensitivityThreshold = pageSize * 0.05;
 
       if (delta > sensitivityThreshold) {
         // User moved slightly down -> Go Next

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/immersion_short.dart';
@@ -15,7 +16,7 @@ class ImmersionOverlayContent extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         child: Column(
           children: [
-            // Spacer to push everything down
+            // This Spacer pushes everything to the bottom of the screen
             const Spacer(),
 
             Row(
@@ -33,24 +34,25 @@ class ImmersionOverlayContent extends StatelessWidget {
                       _buildDifficultyBadge(short.difficultyLabel),
                       const SizedBox(height: 12),
 
-                      // Title
+                      // Title (Friendly Font)
                       Text(
                         short.title,
                         style: const TextStyle(
+                          fontFamily: 'Fredoka',
                           color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          height: 1.1,
                           shadows: [
                             Shadow(
-                              color: Colors.black45,
+                              color: Colors.black54,
                               offset: Offset(0, 2),
                               blurRadius: 4,
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
 
                       // Smart Tags
                       Wrap(
@@ -60,7 +62,6 @@ class ImmersionOverlayContent extends StatelessWidget {
                           _buildTag("English"),
                         ],
                       ),
-                      const SizedBox(height: 12), // Spacing for progress bar
                     ],
                   ),
                 ),
@@ -76,7 +77,8 @@ class ImmersionOverlayContent extends StatelessWidget {
                     _buildSaveButton(context),
                     const SizedBox(height: 24),
                     _buildGotItButton(context),
-                    const SizedBox(height: 12), // Spacing for progress bar
+                    // Align buttons slightly with text baseline
+                    const SizedBox(height: 10),
                   ],
                 ),
               ],
@@ -87,31 +89,34 @@ class ImmersionOverlayContent extends StatelessWidget {
     );
   }
 
+  // --- WIDGET BUILDERS ---
+
   Widget _buildDifficultyBadge(String level) {
     final color = switch (level.toLowerCase()) {
       'beginner' => const Color(0xFF66BB6A), // Green
       'advanced' => const Color(0xFFEF5350), // Red
-      _ => const Color(0xFFFFA726), // Orange (Intermediate)
+      _ => const Color(0xFFFFA726), // Orange
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.9),
+        color: color.withValues(alpha: 0.2),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.eco, color: Colors.white, size: 14),
-          const SizedBox(width: 4),
+          Icon(Icons.spa_rounded, color: color, size: 14),
+          const SizedBox(width: 6),
           Text(
             level.toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+            style: TextStyle(
+              fontFamily: 'Nunito',
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
             ),
           ),
@@ -122,15 +127,19 @@ class ImmersionOverlayContent extends StatelessWidget {
 
   Widget _buildTag(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white12),
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         "#$text",
-        style: const TextStyle(color: Colors.white70, fontSize: 12),
+        style: const TextStyle(
+          fontFamily: 'Nunito',
+          color: Colors.white70,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -142,24 +151,39 @@ class ImmersionOverlayContent extends StatelessWidget {
       },
       child: Column(
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.black26,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white12),
-            ),
-            child: Icon(
-              short.isSaved ? Icons.favorite : Icons.favorite_border,
-              color: short.isSaved ? Colors.pinkAccent : Colors.white,
-              size: 28,
+          // Glassmorphism Circle
+          ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Icon(
+                  short.isSaved
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: short.isSaved ? const Color(0xFFFF6584) : Colors.white,
+                  size: 28,
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           const Text(
-            "Save",
-            style: TextStyle(color: Colors.white, fontSize: 12),
+            "Keep",
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontFamily: 'Nunito',
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -170,29 +194,49 @@ class ImmersionOverlayContent extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         context.read<ImmersionBloc>().add(MarkShortAsWatched(short.id));
-        // Optional: Trigger a small confetti or "Thumbs up" animation here
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Great! Algorithm updated."),
+            content: Text(
+              "Absorbed! +5 XP",
+              style: TextStyle(fontFamily: 'Fredoka'),
+            ),
+            backgroundColor: Color(0xFF4CAF50),
             duration: Duration(milliseconds: 800),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       },
       child: Column(
         children: [
+          // "Reward" style button
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF66BB6A), // Success Green
+            decoration: BoxDecoration(
+              color: const Color(0xFF4CAF50), // Growth Green
               shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)],
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            child: const Icon(Icons.check, color: Colors.white, size: 28),
+            child: const Icon(
+              Icons.check_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           const Text(
-            "I got it",
-            style: TextStyle(color: Colors.white, fontSize: 12),
+            "Got it",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Nunito',
+            ),
           ),
         ],
       ),

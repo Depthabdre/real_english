@@ -253,11 +253,12 @@ class _BouncingDotsLoaderState extends State<BouncingDotsLoader>
 
 // --- Main App Shell  ---
 
+// ... imports ...
+
 class MainAppShell extends StatelessWidget {
   final Widget child;
   const MainAppShell({super.key, required this.child});
 
-  // 1. Index Logic
   int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).uri.toString();
     if (location.startsWith('/feed')) return 1;
@@ -265,7 +266,6 @@ class MainAppShell extends StatelessWidget {
     return 0;
   }
 
-  // 2. Navigation Logic
   void _onItemTapped(int index, BuildContext context) {
     switch (index) {
       case 0:
@@ -283,26 +283,35 @@ class MainAppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final systemIsDark = theme.brightness == Brightness.dark;
 
-    // Feature Colors
+    final location = GoRouterState.of(context).uri.toString();
+    final int currentIndex = _calculateSelectedIndex(context);
+
+    // --- FIX 1: CONTEXTUAL THEMING ---
+    // If we are on the Feed (Index 1), the background is ALWAYS black (video).
+    // Therefore, the Nav Bar must ALWAYS act like it's in Dark Mode to blend in.
+    final bool forceDarkUI = currentIndex == 1;
+    final bool effectiveIsDark = forceDarkUI || systemIsDark;
+
+    // Colors
     final Color colorStories = theme.colorScheme.primary;
     final Color colorFeed = theme.colorScheme.secondary;
-    final Color colorGrowth = isDark
+    final Color colorGrowth = effectiveIsDark
         ? const Color(0xFF81C784)
         : const Color(0xFF4CAF50);
 
-    final Color navBarColor = isDark
-        ? const Color(0xFF252A30).withValues(alpha: 0.50)
-        : Colors.white.withValues(alpha: 0.50);
+    // Dynamic Background Color
+    // If on Feed: Dark Grey with high transparency (Glass)
+    // If Normal: Standard White or Dark Grey
+    final Color navBarColor = effectiveIsDark
+        ? const Color(0xFF252A30).withValues(alpha: 0.60)
+        : Colors.white.withValues(alpha: 0.80);
 
-    // Border Colors for the "Glass Edge" look
-    final Color borderColor = isDark
+    // Border Colors
+    final Color borderColor = effectiveIsDark
         ? Colors.white.withValues(alpha: 0.1)
-        : Colors.white.withValues(alpha: 0.6); // Stronger border for light mode
-
-    final String location = GoRouterState.of(context).uri.toString();
-    final int currentIndex = _calculateSelectedIndex(context);
+        : Colors.white.withValues(alpha: 0.6);
 
     final isRootTab =
         location == '/story-trails' ||
@@ -318,32 +327,31 @@ class MainAppShell extends StatelessWidget {
         }
       },
       child: Scaffold(
-        extendBody: true, // Crucial for transparency
+        extendBody: true,
         body: child,
         bottomNavigationBar: SafeArea(
           child: Container(
             height: 60,
             margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            // OUTER CONTAINER (Shadows)
             decoration: BoxDecoration(
               color: Colors.transparent,
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15),
+                  // Darker shadow on feed for contrast
+                  color: Colors.black.withValues(
+                    alpha: effectiveIsDark ? 0.4 : 0.15,
+                  ),
                   blurRadius: 25,
                   offset: const Offset(0, 8),
                 ),
               ],
             ),
-            // CLIPPING (Round shape for blur)
             child: ClipRRect(
               borderRadius: BorderRadius.circular(30),
               child: BackdropFilter(
-                // BLUR EFFECT: This creates the "Glass" look
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                 child: Container(
-                  // INNER CONTAINER (Color Tint & Border)
                   decoration: BoxDecoration(
                     color: navBarColor,
                     border: Border.all(color: borderColor, width: 1.0),
@@ -358,6 +366,7 @@ class MainAppShell extends StatelessWidget {
                         label: "Stories",
                         icon: Icons.auto_stories_rounded,
                         activeColor: colorStories,
+                        forceDark: effectiveIsDark, // Pass the forced theme
                       ),
                       _buildCustomNavItem(
                         context: context,
@@ -367,6 +376,7 @@ class MainAppShell extends StatelessWidget {
                         icon: Icons.smart_display_rounded,
                         activeColor: colorFeed,
                         isCenter: true,
+                        forceDark: effectiveIsDark,
                       ),
                       _buildCustomNavItem(
                         context: context,
@@ -375,6 +385,7 @@ class MainAppShell extends StatelessWidget {
                         label: "Growth",
                         icon: Icons.spa_rounded,
                         activeColor: colorGrowth,
+                        forceDark: effectiveIsDark,
                       ),
                     ],
                   ),
@@ -394,12 +405,11 @@ class MainAppShell extends StatelessWidget {
     required String label,
     required IconData icon,
     required Color activeColor,
+    required bool forceDark, // New Param
     bool isCenter = false,
   }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final inactiveColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    // If we are forcing dark mode (on Feed), inactive icons should be light grey
+    final inactiveColor = forceDark ? Colors.white60 : Colors.grey.shade600;
 
     return GestureDetector(
       onTap: () => _onItemTapped(index, context),
@@ -412,7 +422,6 @@ class MainAppShell extends StatelessWidget {
         height: 40,
         decoration: isSelected
             ? BoxDecoration(
-                // Using .withValues for the selection pill background
                 color: activeColor.withValues(alpha: 0.20),
                 borderRadius: BorderRadius.circular(20),
               )

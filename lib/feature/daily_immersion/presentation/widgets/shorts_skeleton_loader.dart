@@ -6,12 +6,11 @@ class ShortsSkeletonLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dark theme base colors for the shimmer
     final baseColor = Colors.grey[900]!;
     final highlightColor = Colors.grey[800]!;
 
     return Container(
-      color: Colors.black, // Background of the video player
+      color: Colors.black,
       width: double.infinity,
       height: double.infinity,
       child: Shimmer.fromColors(
@@ -19,39 +18,44 @@ class ShortsSkeletonLoader extends StatelessWidget {
         highlightColor: highlightColor,
         child: Stack(
           children: [
-            // 1. Right Side Action Buttons (Like, Comment, Share)
+            // Action Buttons (Right)
             Positioned(
               right: 16,
-              bottom: 100, // Adjust based on your real UI
+              bottom: 120, // Match the padding of real content
               child: Column(
                 children: [
-                  _buildCircle(50), // Profile Pic
+                  _buildCircle(50), // Save
                   const SizedBox(height: 25),
-                  _buildCircle(40), // Like
-                  const SizedBox(height: 25),
-                  _buildCircle(40), // Comment
-                  const SizedBox(height: 25),
-                  _buildCircle(40), // Share
+                  _buildCircle(50), // Got it
                 ],
               ),
             ),
 
-            // 2. Bottom Text Area (Title & Description)
+            // Text Area (Left)
             Positioned(
               left: 16,
-              bottom: 40,
-              right: 80, // Leave space for buttons
+              bottom: 120,
+              right: 100,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildRectangle(width: 150, height: 20), // Username/Channel
-                  const SizedBox(height: 10),
+                  _buildRectangle(width: 60, height: 20, radius: 20), // Badge
+                  const SizedBox(height: 12),
+                  _buildRectangle(width: 200, height: 24, radius: 4), // Title
+                  const SizedBox(height: 8),
                   _buildRectangle(
-                    width: double.infinity,
-                    height: 16,
-                  ), // Description Line 1
-                  const SizedBox(height: 6),
-                  _buildRectangle(width: 200, height: 16), // Description Line 2
+                    width: 150,
+                    height: 24,
+                    radius: 4,
+                  ), // Title Line 2
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _buildRectangle(width: 60, height: 16, radius: 8), // Tag
+                      const SizedBox(width: 8),
+                      _buildRectangle(width: 60, height: 16, radius: 8), // Tag
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -72,13 +76,17 @@ class ShortsSkeletonLoader extends StatelessWidget {
     );
   }
 
-  Widget _buildRectangle({required double width, required double height}) {
+  Widget _buildRectangle({
+    required double width,
+    required double height,
+    required double radius,
+  }) {
     return Container(
       width: width,
       height: height,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(radius),
       ),
     );
   }

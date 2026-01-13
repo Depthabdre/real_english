@@ -2,246 +2,277 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-class StoryGenerationLoader extends StatefulWidget {
-  const StoryGenerationLoader({super.key});
+class StoryAlchemyLoader extends StatefulWidget {
+  const StoryAlchemyLoader({super.key});
 
   @override
-  State<StoryGenerationLoader> createState() => _StoryGenerationLoaderState();
+  State<StoryAlchemyLoader> createState() => _StoryAlchemyLoaderState();
 }
 
-class _StoryGenerationLoaderState extends State<StoryGenerationLoader>
+class _StoryAlchemyLoaderState extends State<StoryAlchemyLoader>
     with TickerProviderStateMixin {
-  int _currentStepIndex = 0;
-  Timer? _timer;
-
-  // Animation Controllers for the "Magic Circle" effect
-  late AnimationController _rotationController;
-  late AnimationController _pulseController;
-
-  final List<String> _loadingPhrases = [
-    "Preparing your story segment...",
-    "Organizing narrative elements...",
-    "Formulating language challenges...",
-    "Structuring comprehension questions...",
-    "Refining the text for clarity...",
-    "Finalizing your interactive lesson...",
+  // Simplified, clear steps for the animation
+  final List<_StoryIngredient> _ingredients = [
+    _StoryIngredient("Creating the world...", Icons.landscape_rounded),
+    _StoryIngredient("Adding characters...", Icons.face_rounded),
+    _StoryIngredient("Writing dialogue...", Icons.chat_bubble_outline_rounded),
+    _StoryIngredient("Adding details...", Icons.auto_awesome_rounded),
+    _StoryIngredient("Almost done...", Icons.menu_book_rounded),
   ];
+
+  int _currentIndex = 0;
+  Timer? _cycleTimer;
+
+  // Animation Controllers
+  late AnimationController _pulseController;
+  late AnimationController _orbitController;
+  late AnimationController _dropController;
 
   @override
   void initState() {
     super.initState();
 
-    // 1. Text Cycle Timer
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (mounted) {
-        setState(() {
-          _currentStepIndex = (_currentStepIndex + 1) % _loadingPhrases.length;
-        });
-      }
-    });
-
-    // 2. Slow Rotation Animation (For the outer ring)
-    _rotationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat();
-
-    // 3. Pulse Animation (For the inner glow/icon)
+    // 1. Pulse
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
+
+    // 2. Orbit
+    _orbitController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat();
+
+    // 3. Drop
+    _dropController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+
+    _startIngredientCycle();
+  }
+
+  void _startIngredientCycle() {
+    _dropController.forward(from: 0.0);
+
+    _cycleTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted) {
+        setState(() {
+          if (_currentIndex < _ingredients.length - 1) {
+            _currentIndex++;
+            _dropController.forward(from: 0.0);
+          }
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
-    _rotationController.dispose();
+    _cycleTimer?.cancel();
     _pulseController.dispose();
+    _orbitController.dispose();
+    _dropController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 1. Detect Theme
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // 2. Select Background Asset based on Theme
-    final backgroundAsset = isDark
-        ? 'assets/images/adventure_background5.png'
-        : 'assets/images/adventure_background6.png';
-
-    // 3. Define Colors based on Theme (Cyan/Blue for Dark, Deep Blue/Amber for Light)
-    final accentColor = isDark
-        ? const Color(0xFF64FFDA)
-        : const Color(0xFF1976D2); // Cyan vs Blue
-    final textColor = isDark ? Colors.white : const Color(0xFF212121);
-    final glowColor = isDark
-        ? const Color(0xFF64FFDA).withValues(alpha: 0.3)
-        : Colors.blue.withValues(alpha: 0.2);
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
-        fit: StackFit.expand,
+        alignment: Alignment.center,
         children: [
-          // -----------------------------------------------------------
-          // LAYER 1: Background Image + Overlay
-          // -----------------------------------------------------------
-          Image.asset(
-            backgroundAsset,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
-              color: isDark ? const Color(0xFF0B0E14) : const Color(0xFFF5F5F5),
+          // 1. Background (Subtle)
+          Positioned.fill(
+            child: CustomPaint(
+              painter: ParticleOrbitPainter(
+                animation: _orbitController,
+                color: primaryColor.withValues(alpha: 0.05),
+              ),
             ),
           ),
 
-          // Dark/Light Overlay for readability
-          Container(
-            color: isDark
-                ? const Color(0xFF0B0E14).withValues(
-                    alpha: 0.85,
-                  ) // Deep Dark Overlay
-                : Colors.white.withValues(alpha: 0.85), // Milky White Overlay
-          ),
-
-          // -----------------------------------------------------------
-          // LAYER 2: Main Content
-          // -----------------------------------------------------------
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // 1. The Magic Compass / Icon
-              SizedBox(
-                width: 200,
-                height: 200,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // A. Rotating Outer Ring (The "Rune Circle")
-                    RotationTransition(
-                      turns: _rotationController,
-                      child: Container(
-                        width: 180,
-                        height: 180,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: accentColor.withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        // Add some "runes" or dots on the ring
-                        child: CustomPaint(
-                          painter: RuneCirclePainter(color: accentColor),
-                        ),
-                      ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment:
+                    CrossAxisAlignment.center, // Center Everything
+                children: [
+                  // ---------------------------------------------------
+                  // 2. CLEAR HEADER (Simple English)
+                  // ---------------------------------------------------
+                  Text(
+                    "Preparing Your Story",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Fredoka',
+                      fontSize: 28,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Please wait, this takes a few seconds.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
 
-                    // B. Pulsing Inner Glow
-                    AnimatedBuilder(
-                      animation: _pulseController,
-                      builder: (context, child) {
-                        return Container(
-                          width: 120,
-                          height: 120,
+                  const SizedBox(height: 50),
+
+                  // ---------------------------------------------------
+                  // 3. THE VISUAL ANIMATION
+                  // ---------------------------------------------------
+                  SizedBox(
+                    height: 250,
+                    width: 250,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // A. Ripple
+                        AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, child) {
+                            return Container(
+                              width: 140 + (_pulseController.value * 20),
+                              height: 140 + (_pulseController.value * 20),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: primaryColor.withValues(
+                                    alpha: 0.2 - (_pulseController.value * 0.2),
+                                  ),
+                                  width: 2,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        // B. Book Icon
+                        Container(
+                          padding: const EdgeInsets.all(25),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
+                            color: theme.cardColor,
                             boxShadow: [
                               BoxShadow(
-                                color: glowColor,
-                                blurRadius: 20 + (10 * _pulseController.value),
-                                spreadRadius: 5 + (5 * _pulseController.value),
+                                color: primaryColor.withValues(alpha: 0.15),
+                                blurRadius: 30,
+                                spreadRadius: 5,
                               ),
                             ],
                           ),
-                        );
-                      },
-                    ),
+                          child: Icon(
+                            Icons.menu_book_rounded,
+                            size: 60,
+                            color: primaryColor,
+                          ),
+                        ),
+                        // C. Falling Icon
+                        AnimatedBuilder(
+                          animation: _dropController,
+                          builder: (context, child) {
+                            final val = _dropController.value;
+                            final double dy = -100 + (100 * val);
+                            final double opacity = val > 0.8
+                                ? (1.0 - val) * 5
+                                : 1.0;
+                            final double scale = 1.0 - (val * 0.5);
 
-                    // C. The Central Icon (Book + Compass Star)
-                    Icon(
-                      Icons.auto_stories_rounded, // Book Icon
-                      size: 60,
-                      color: accentColor,
+                            return Transform.translate(
+                              offset: Offset(0, dy),
+                              child: Transform.scale(
+                                scale: scale,
+                                child: Opacity(
+                                  opacity: opacity.clamp(0.0, 1.0),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.secondary,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: theme.colorScheme.secondary
+                                              .withValues(alpha: 0.4),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      _ingredients[_currentIndex].icon,
+                                      color: Colors.white,
+                                      size: 32,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    // Compass Points overlay (Custom Icon or combination)
-                    IgnorePointer(
-                      child: Icon(
-                        Icons.explore_outlined, // Compass overlay
-                        size: 100,
-                        color: accentColor.withValues(alpha: 0.5),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // ---------------------------------------------------
+                  // 4. CURRENT STATUS TEXT
+                  // ---------------------------------------------------
+                  SizedBox(
+                    height: 40,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 500),
+                      child: Text(
+                        _ingredients[_currentIndex].text,
+                        key: ValueKey<int>(_currentIndex),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Fredoka',
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.primary,
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
 
-              const SizedBox(height: 60),
+                  const SizedBox(height: 16),
 
-              // 2. The Animated Text ("Forging Your Story...")
-              SizedBox(
-                height: 60,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 600),
-                  transitionBuilder:
-                      (Widget child, Animation<double> animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0.0, 0.2),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        );
-                      },
-                  child: Text(
-                    _loadingPhrases[_currentStepIndex],
-                    key: ValueKey<String>(_loadingPhrases[_currentStepIndex]),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Georgia', // Serif for "Story" feel
-                      color: textColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+                  // 5. Progress Bar
+                  Container(
+                    width: 160,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: (_currentIndex + 1) / _ingredients.length,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-
-              const SizedBox(height: 10),
-
-              // Dots animation (Simple Text)
-              Text(
-                ". . .",
-                style: TextStyle(
-                  color: textColor.withValues(alpha: 0.6),
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // 3. The Cyan/Blue Progress Bar
-              Container(
-                width: 200,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white10 : Colors.black12,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -249,44 +280,36 @@ class _StoryGenerationLoaderState extends State<StoryGenerationLoader>
   }
 }
 
-// --- Custom Painter to draw the "Rune" details on the ring ---
-class RuneCirclePainter extends CustomPainter {
+class _StoryIngredient {
+  final String text;
+  final IconData icon;
+  _StoryIngredient(this.text, this.icon);
+}
+
+class ParticleOrbitPainter extends CustomPainter {
+  final Animation<double> animation;
   final Color color;
-  RuneCirclePainter({required this.color});
+
+  ParticleOrbitPainter({required this.animation, required this.color})
+    : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
-
-    final radius = size.width / 2;
     final center = Offset(size.width / 2, size.height / 2);
+    final paint = Paint()..color = color;
 
-    // Draw 4 cardinal points (North, South, East, West triangles)
-    for (int i = 0; i < 4; i++) {
-      final angle = (i * 90) * (math.pi / 180);
-      final markerRadius = 6.0;
+    for (int i = 0; i < 3; i++) {
+      final double angle =
+          (animation.value * 2 * math.pi) + (i * (2 * math.pi / 3));
+      final double orbitRadius = 130.0 + (i * 20);
 
-      final dx = center.dx + (radius * math.cos(angle));
-      final dy = center.dy + (radius * math.sin(angle));
+      final dx = center.dx + math.cos(angle) * orbitRadius;
+      final dy = center.dy + math.sin(angle) * orbitRadius;
 
-      canvas.drawCircle(Offset(dx, dy), markerRadius, paint);
-    }
-
-    // Draw smaller dots in between
-    final smallPaint = Paint()..color = color.withValues(alpha: 0.3);
-    for (int i = 0; i < 8; i++) {
-      final angle = (i * 45) * (math.pi / 180);
-      if (i % 2 == 0) continue; // Skip cardinal points
-
-      final dx = center.dx + (radius * math.cos(angle));
-      final dy = center.dy + (radius * math.sin(angle));
-
-      canvas.drawCircle(Offset(dx, dy), 3.0, smallPaint);
+      canvas.drawCircle(Offset(dx, dy), 5.0, paint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

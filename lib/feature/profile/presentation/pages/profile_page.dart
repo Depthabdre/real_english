@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:real_english/feature/profile/presentation/widgets/profile_skeleton_loader.dart';
 
 import '../../../../app/injection_container.dart';
 import '../../../../app/theme_cubit.dart';
@@ -35,24 +36,7 @@ class ProfilePage extends StatelessWidget {
             child: BlocBuilder<ProfileBloc, ProfileState>(
               builder: (context, state) {
                 if (state is ProfileLoading) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "Entering your garden...",
-                          style: TextStyle(
-                            fontFamily: 'Nunito',
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                  return ProfileSkeletonLoader();
                 }
 
                 if (state is ProfileError) {

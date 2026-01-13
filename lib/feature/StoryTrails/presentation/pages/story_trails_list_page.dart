@@ -300,7 +300,7 @@ class StoryTrailsListPage extends StatelessWidget {
   // --- Helpers ---
 
   Widget _buildLoadingState() {
-    return const StoryGenerationLoader();
+    return const StoryAlchemyLoader();
   }
 
   Widget _buildAllLevelsCompleteView(BuildContext context, int currentLevel) {

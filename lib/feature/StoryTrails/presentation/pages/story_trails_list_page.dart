@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:real_english/feature/StoryTrails/domain/entities/story_trails.dart';
+// Ensure this path is correct for your project structure
 import 'package:real_english/feature/StoryTrails/presentation/widgets/story_generation_loader.dart';
 import '../../../../app/injection_container.dart';
 import '../bloc/story_trails_list_bloc.dart';
@@ -11,16 +12,16 @@ class StoryTrailsListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Detect Theme
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    // 2. Select Background Asset based on Theme
+    // Use softer, more illustrative backgrounds if available
     final backgroundAsset = isDark
         ? 'assets/images/adventure_background5.png'
         : 'assets/images/adventure_background6.png';
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: BlocProvider<StoryTrailsListBloc>(
         create: (context) =>
             sl<StoryTrailsListBloc>()..add(FetchStoryTrailsList()),
@@ -29,41 +30,42 @@ class StoryTrailsListPage extends StatelessWidget {
             return Stack(
               children: [
                 // -----------------------------------------------------------
-                // LAYER 1: Background Image (Dynamic)
+                // LAYER 1: Background Image
                 // -----------------------------------------------------------
                 Positioned.fill(
                   child: Image.asset(
                     backgroundAsset,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: isDark
-                          ? const Color(0xFF1A2332)
-                          : Colors.blueGrey[50],
-                    ),
+                    errorBuilder: (_, __, ___) =>
+                        Container(color: theme.scaffoldBackgroundColor),
                   ),
                 ),
 
                 // -----------------------------------------------------------
-                // LAYER 2: Overlay (Dynamic)
+                // LAYER 2: Soft Natural Overlay
                 // -----------------------------------------------------------
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: Alignment.center,
-                        radius: 1.2,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                         colors: isDark
                             ? [
-                                // Dark Mode: Transparent -> Black Vignette
                                 Colors.transparent,
-                                const Color(0xFF000000).withValues(alpha: 0.85),
+                                const Color(
+                                  0xFF0F1623,
+                                ).withValues(alpha: 0.9), // Deep Night
                               ]
                             : [
-                                // Light Mode: Light Haze -> White Vignette
-                                Colors.white.withValues(alpha: 0.1),
-                                Colors.white.withValues(alpha: 0.5),
+                                Colors.white.withValues(
+                                  alpha: 0.3,
+                                ), // Sunny Haze
+                                Colors.white.withValues(
+                                  alpha: 0.8,
+                                ), // Grounding White
                               ],
-                        stops: const [0.2, 1.0],
+                        stops: const [0.3, 1.0],
                       ),
                     ),
                   ),
@@ -99,35 +101,27 @@ class StoryTrailsListPage extends StatelessWidget {
     );
   }
 
-  /// 🌟 The Main UI Builder
+  /// 📖 The "Storybook" Card View
+  /// 📖 The Refined Card View
   Widget _buildCardView(
     BuildContext context,
     StoryTrail storyTrail,
     bool isDark,
   ) {
-    // 1. Dynamic Colors for Card Fill and Text
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+
+    // 1. Background Color (Reverted to the deep blue you liked)
     final cardColor = isDark
-        ? const Color(0xFF0F1623).withValues(alpha: 0.98) // Deep Dark Blue
-        : Colors.white.withValues(alpha: 0.95); // White
+        ? const Color(0xFF0F1623).withValues(alpha: 0.95) // Deep Dark Blue
+        : Colors.white.withValues(alpha: 0.95);
 
-    final textColor = isDark ? Colors.white : const Color(0xFF212121);
-    final descColor = isDark
-        ? const Color(0xFFB0BEC5)
-        : const Color(0xFF546E7A);
-    final iconColor = isDark ? Colors.white : Colors.blue[800];
+    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
 
-    // 2. Fixed "Neon" Elements (Shadow & Border) - Same for BOTH modes
-    final glowShadow = BoxShadow(
-      color: const Color(0xFF42A5F5).withValues(alpha: 0.6), // Bright Blue Glow
-      blurRadius: 50,
-      spreadRadius: 0,
-      offset: const Offset(0, 0),
-    );
-
-    final borderStyle = Border.all(
-      color: const Color(0xFF64B5F6), // Bright Blue Border
-      width: 1.5, // Very little border
-    );
+    // Soft Primary Color for Icon
+    final softIconColor = isDark
+        ? const Color(0xFF90CAF9)
+        : primaryColor.withValues(alpha: 0.8);
 
     return Center(
       child: SingleChildScrollView(
@@ -138,30 +132,46 @@ class StoryTrailsListPage extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 400),
             decoration: BoxDecoration(
               color: cardColor,
-              borderRadius: BorderRadius.circular(35),
-              border: borderStyle, // Blue Border
+              borderRadius: BorderRadius.circular(32),
+              // 2. Stronger Shadow to "Pop" from background
               boxShadow: [
-                glowShadow, // Blue Shadow
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3), // Darker shadow
+                  blurRadius: 30,
+                  offset: const Offset(0, 15),
+                  spreadRadius: 2, // Slight spread to make it stand out
+                ),
               ],
+              // Optional: Subtle border for extra definition in dark mode
+              border: isDark
+                  ? Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 1,
+                    )
+                  : null,
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 1. Header: Icon + "Story Trails" (Inside Card)
+                // 3. Header: "Current Chapter" (Restored)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.explore, color: iconColor, size: 20),
+                    Icon(
+                      Icons.auto_stories_rounded,
+                      color: softIconColor, // Soft Primary
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
-                      "Story Trails",
+                      "CURRENT CHAPTER",
                       style: TextStyle(
-                        fontFamily: 'RobotoCondensed',
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: textColor.withValues(alpha: 0.9),
-                        letterSpacing: 0.5,
+                        fontFamily: 'Nunito',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800, // Bold
+                        color: textColor.withValues(alpha: 0.7),
+                        letterSpacing: 1.2, // Wide spacing for elegance
                       ),
                     ),
                   ],
@@ -169,23 +179,22 @@ class StoryTrailsListPage extends StatelessWidget {
 
                 const SizedBox(height: 24),
 
-                // 2. The Rectangular Image
+                // 4. Cover Image
                 Container(
-                  height: 260,
+                  height: 240,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    // Minimal Shadow for image
+                    borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 5,
-                        offset: const Offset(0, 4),
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                     child: Hero(
                       tag: 'story_cover_${storyTrail.id}',
                       child: Image.network(
@@ -193,18 +202,18 @@ class StoryTrailsListPage extends StatelessWidget {
                         fit: BoxFit.cover,
                         loadingBuilder: (context, child, progress) {
                           if (progress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.blue,
-                              value: progress.expectedTotalBytes != null
-                                  ? progress.cumulativeBytesLoaded /
-                                        progress.expectedTotalBytes!
-                                  : null,
+                          return Container(
+                            color: isDark ? Colors.grey[900] : Colors.grey[200],
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: primaryColor,
+                              ),
                             ),
                           );
                         },
                         errorBuilder: (_, __, ___) => Container(
-                          color: Colors.grey[900],
+                          color: Colors.grey[800],
                           child: const Icon(
                             Icons.broken_image,
                             color: Colors.white54,
@@ -215,76 +224,61 @@ class StoryTrailsListPage extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 24),
 
-                // 3. Story Title
+                // 5. Title
                 Text(
                   storyTrail.title,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontFamily: 'RobotoCondensed',
+                    fontFamily: 'Fredoka',
                     fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: textColor, // Dynamic Text Color
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
                     height: 1.1,
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
-                // 4. Description
+                // 6. Description
                 Text(
                   storyTrail.description,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 14,
-                    color: descColor, // Dynamic Desc Color
-                    height: 1.5,
+                    fontFamily: 'Nunito',
+                    fontSize: 16,
+                    color: textColor.withValues(alpha: 0.7),
+                    height: 1.4,
                   ),
                 ),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 32),
 
-                // 5. Gradient Button (Blue gradient for both)
+                // 7. Action Button
                 SizedBox(
                   width: double.infinity,
                   height: 56,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF90CAF9), Color(0xFF42A5F5)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      context.push('/story-player/${storyTrail.id}');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 6,
+                      shadowColor: primaryColor.withValues(alpha: 0.4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
                       ),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF42A5F5).withValues(alpha: 0.4),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
                     ),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        context.go('/story-player/${storyTrail.id}');
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                      ),
-                      child: const Text(
-                        "START YOUR JOURNEY",
-                        style: TextStyle(
-                          color: Colors
-                              .black87, // Always black on this bright button
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
+                    child: const Text(
+                      "Play Story",
+                      style: TextStyle(
+                        fontFamily: 'Fredoka',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
                       ),
                     ),
                   ),
@@ -300,48 +294,65 @@ class StoryTrailsListPage extends StatelessWidget {
   // --- Helpers ---
 
   Widget _buildLoadingState() {
+    // Use your custom "Story Alchemy" loader here
     return const StoryAlchemyLoader();
   }
 
   Widget _buildAllLevelsCompleteView(BuildContext context, int currentLevel) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Center(
       child: Container(
         margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(30),
+        padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF0F1623).withValues(alpha: 0.95)
-              : Colors.white.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(30),
-          // Consistent Blue Border/Shadow here too
-          border: Border.all(color: const Color(0xFF64B5F6), width: 1.5),
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(32),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF42A5F5).withValues(alpha: 0.6),
-              blurRadius: 30,
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.workspace_premium, color: Colors.amber, size: 60),
-            const SizedBox(height: 20),
-            Text(
-              "Level $currentLevel Complete!",
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFD54F).withValues(alpha: 0.2), // Gold
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.star_rounded,
+                color: Color(0xFFFFD54F),
+                size: 50,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 24),
             Text(
-              "Check back soon for new adventures.",
+              "Chapter $currentLevel Finished!",
               textAlign: TextAlign.center,
-              style: TextStyle(color: isDark ? Colors.grey : Colors.grey[700]),
+              style: TextStyle(
+                fontFamily: 'Fredoka',
+                color: theme.colorScheme.onSurface,
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Your garden is blooming. Take a rest, new stories are growing.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Nunito',
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 16,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -354,18 +365,36 @@ class StoryTrailsListPage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, color: Colors.redAccent, size: 50),
-          const SizedBox(height: 16),
-          Text(message, style: const TextStyle(color: Colors.white70)),
+          Icon(Icons.cloud_off_rounded, color: Colors.grey[400], size: 60),
           const SizedBox(height: 20),
-          OutlinedButton(
+          Text(
+            "The path is hidden...",
+            style: TextStyle(
+              fontFamily: 'Fredoka',
+              fontSize: 20,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontFamily: 'Nunito', color: Colors.grey[600]),
+            ),
+          ),
+          const SizedBox(height: 30),
+          ElevatedButton(
             onPressed: () =>
                 context.read<StoryTrailsListBloc>().add(FetchStoryTrailsList()),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white54),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
             ),
-            child: const Text('Retry'),
+            child: const Text('Try Again'),
           ),
         ],
       ),

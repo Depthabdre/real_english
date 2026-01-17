@@ -197,8 +197,9 @@ class _ImmersionVideoItemState extends State<ImmersionVideoItem> {
             child: ValueListenableBuilder<YoutubePlayerValue>(
               valueListenable: _controller!,
               builder: (context, value, child) {
-                if (value.metaData.duration.inMilliseconds == 0)
+                if (value.metaData.duration.inMilliseconds == 0) {
                   return const SizedBox.shrink();
+                }
 
                 final progress =
                     value.position.inMilliseconds /

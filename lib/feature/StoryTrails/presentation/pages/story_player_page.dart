@@ -109,7 +109,7 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
 
     overlay.insert(overlayEntry);
     // Persist for 3 seconds, then remove
-    Future.delayed(const Duration(seconds: 3), () {
+    Future.delayed(const Duration(seconds: 7), () {
       if (overlayEntry.mounted) overlayEntry.remove();
     });
   }
@@ -135,7 +135,13 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
             color: Colors.black.withValues(alpha: 0.3),
             shape: BoxShape.circle,
           ),
-          child: const BackButton(color: Colors.white),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            onPressed: () {
+              // Forces navigation back to the Story Trail Home
+              context.pop();
+            },
+          ),
         ),
         actions: [
           // Optional: Progress indicator or level badge in top right
@@ -366,7 +372,8 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
             key: ValueKey("${segment.id}_${typingSpeed.inMilliseconds}"),
             text: segment.textContent,
             style: TextStyle(
-              fontFamily: 'Georgia',
+              fontFamily: 'Nunito',
+              fontWeight: FontWeight.w600,
               fontSize: 18,
               height: 1.6,
               color: textColor,
@@ -574,15 +581,14 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
     LevelCompleted state,
     bool isDark,
   ) {
-    return _buildCompletionCard(
+    return _buildOrganicCompletionCard(
       context,
-      title: "Congratulations!",
-      // Shows the story title dynamically
-      subtitle: "You have completed: ${state.storyTitle}",
-      buttonText: "EMBARK ON THE NEXT JOURNEY",
+      title: "Chapter Complete",
+      subtitle: "You have finished: ${state.storyTitle}",
+      buttonText: "Continue Journey",
       onPressed: () => context.go('/story-trails'),
       isDark: isDark,
-      xpEarned: 500, // Or state.xpEarned
+      xpEarned: 500, // Fixed XP for level up, or pass from state if available
     );
   }
 
@@ -591,12 +597,11 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
     StoryPlayerFinished state,
     bool isDark,
   ) {
-    return _buildCompletionCard(
+    return _buildOrganicCompletionCard(
       context,
-      title: "Congratulations!",
-      // Shows the story title dynamically
-      subtitle: "You have completed: ${state.storyTitle}",
-      buttonText: "EMBARK ON THE NEXT JOURNEY",
+      title: "Story Finished",
+      subtitle: "You have finished: ${state.storyTitle}",
+      buttonText: "Return to Path",
       onPressed: () => context.go('/story-trails'),
       isDark: isDark,
       xpEarned: state.finalProgress.xpEarned,
@@ -605,299 +610,190 @@ class _StoryPlayerViewState extends State<StoryPlayerView> {
 
   // ... (Previous imports and class definition remain the same) ...
 
-  // Replace the old _buildCompletionCard with this new one
-  Widget _buildCompletionCard(
+  Widget _buildOrganicCompletionCard(
     BuildContext context, {
     required String title,
     required String subtitle,
     required String buttonText,
-    required VoidCallback onPressed,
+    required VoidCallback
+    onPressed, // We will ignore this and force context.go below
     required bool isDark,
     required int xpEarned,
   }) {
-    // --- 1. THEME-AWARE COLOR PALETTE ---
+    final theme = Theme.of(context);
 
-    // Background: Deep Space (Dark) vs Soft Mist (Light)
-    final bgColor = isDark ? const Color(0xFF050810) : const Color(0xFFF0F4F8);
+    // 1. Natural Palette
 
-    // Card: Deep Navy (Dark) vs Pure White (Light)
     final cardColor = isDark ? const Color(0xFF0F1623) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF2D3142);
+    final primaryColor = theme.colorScheme.primary;
 
-    // Text: White vs Dark Blue-Grey
-    final textColor = isDark
-        ? Colors.white
-        : const Color(0xFF1A237E); // Deep Blue text for Light mode
-    final subTextColor = isDark
-        ? const Color(0xFF90A4AE)
-        : const Color(0xFF546E7A);
-    final dividerColor = isDark ? Colors.white12 : Colors.black12;
+    return Center(
+      child: SingleChildScrollView(
+        child: Container(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
+          constraints: const BoxConstraints(maxWidth: 400),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(32),
 
-    // --- 2. UNIFIED EFFECTS (NEON LOOK FOR BOTH) ---
-    final glowColor = const Color(0xFF64B5F6); // Bright Blue
-    final accentCyan = const Color(0xFF80DEEA); // Cyan
+            // Soft Border (Consistent with Trail Home)
+            border: isDark
+                ? Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 1,
+                  )
+                : Border.all(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    width: 1,
+                  ),
 
-    // Border: Visible in both modes
-    final cardBorder = Border.all(
-      color: glowColor.withValues(alpha: isDark ? 0.3 : 0.4),
-      width: 1.5,
-    );
-
-    // Shadow: Colored Glow in BOTH modes (No black shadows)
-    final cardShadow = BoxShadow(
-      color: glowColor.withValues(
-        alpha: isDark ? 0.15 : 0.25,
-      ), // Stronger alpha in light mode to be visible
-      blurRadius: 40,
-      spreadRadius: 2,
-      offset: const Offset(0, 0), // Centered glow
-    );
-
-    // Ambience Gradient (Background)
-    final ambientGradient = RadialGradient(
-      center: Alignment.center,
-      radius: 1.0,
-      colors: isDark
-          ? [
-              const Color(0xFF1A237E).withValues(alpha: 0.15),
-              Colors.transparent,
-            ]
-          : [
-              const Color(0xFF4FC3F7).withValues(alpha: 0.15),
-              Colors.transparent,
-            ], // Light Blue glow
-    );
-
-    // Text Styles
-    final headerStyle = TextStyle(
-      fontFamily: 'Georgia',
-      fontSize: 28,
-      fontWeight: FontWeight.bold,
-      color: textColor,
-      letterSpacing: 0.5,
-      // Subtle text glow
-      shadows: [
-        Shadow(color: glowColor.withValues(alpha: 0.3), blurRadius: 15),
-      ],
-    );
-
-    return Scaffold(
-      backgroundColor: bgColor,
-      body: Stack(
-        children: [
-          // Background Ambience (Now visible in BOTH modes)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(gradient: ambientGradient),
-            ),
-          ),
-
-          Center(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
-              decoration: BoxDecoration(
-                color: cardColor.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(36),
-                border: cardBorder, // Glowing border
-                boxShadow: [cardShadow], // Glowing shadow
+            // Soft "Sunlight" Shadow
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, 15),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // --- HEADER ---
-                  Text(title, style: headerStyle, textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 15,
-                      color: subTextColor,
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-
-                  const SizedBox(height: 30),
-                  Divider(color: dividerColor, thickness: 1),
-                  const SizedBox(height: 30),
-
-                  // --- ICONS & STATS ---
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Left Column
-                      Expanded(
-                        child: Column(
-                          children: [
-                            // Shared helper for Gradient Icons
-                            _buildGradientIcon(
-                              Icons.verified_user_outlined,
-                              accentCyan,
-                              glowColor,
-                              true, // Always force "glow" effect on icons
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              "Story Mastered",
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Right Column
-                      Expanded(
-                        child: Column(
-                          children: [
-                            _buildGradientIcon(
-                              Icons.auto_graph_rounded,
-                              accentCyan,
-                              glowColor,
-                              true,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              "New Lore Unlocked",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "+$xpEarned XP",
-                              style: TextStyle(
-                                color: subTextColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 30),
-                  Divider(color: dividerColor, thickness: 1),
-                  const SizedBox(height: 24),
-
-                  // --- FOOTER QUOTE ---
-                  Text(
-                    "Every journey completed strengthens your command of language and expands your unique saga.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: subTextColor,
-                      fontStyle: FontStyle.italic,
-                      height: 1.5,
-                      fontFamily: 'Georgia',
-                    ),
-                  ),
-
-                  const SizedBox(height: 40),
-
-                  // --- GRADIENT BUTTON ---
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        gradient: LinearGradient(
-                          colors: [accentCyan, glowColor],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: glowColor.withValues(alpha: 0.4),
-                            blurRadius: 20,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: onPressed,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                        ),
-                        child: Text(
-                          buttonText.toUpperCase(),
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            letterSpacing: 0.5,
-                            color: Color(
-                              0xFF0D1B2A,
-                            ), // Dark text on bright button
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. Icon Circle (Golden Glow)
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  // Changed from Gold to a "Natural Growth" Green/Teal mix
+                  color: const Color(0xFF66BB6A).withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  // Changed from Star to Flower (Represents organic growth)
+                  Icons.local_florist_rounded,
+                  color: Color(0xFF43A047), // Vibrant Leaf Green
+                  size: 50,
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // 2. Title
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Fredoka',
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                  height: 1.1,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // 3. Subtitle
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 16,
+                  color: textColor.withValues(alpha: 0.7),
+                  height: 1.5,
+                ),
+              ),
+
+              const SizedBox(height: 32),
+
+              // 4. XP Badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.spa_rounded, size: 18, color: primaryColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      "+$xpEarned Growth",
+                      style: TextStyle(
+                        fontFamily: 'Fredoka',
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // 5. The Philosophy Quote (Motivation)
+              // "Realistic but inspiring"
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Text(
+                  "\"A child doesn't study to speak; they simply live. Today, you lived a little more in English.\"",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Nunito',
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                    color: textColor.withValues(alpha: 0.6),
+                    height: 1.5,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 40),
+
+              // 6. Action Button
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // RESET: Go back to the main list and clear history
+                    context.go('/story-trails');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    shadowColor: primaryColor.withValues(alpha: 0.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                  ),
+                  child: Text(
+                    buttonText,
+                    style: const TextStyle(
+                      fontFamily: 'Fredoka',
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   // --- Helper for "Glowing" Icons ---
-  Widget _buildGradientIcon(
-    IconData icon,
-    Color color1,
-    Color color2,
-    bool isDark,
-  ) {
-    return ShaderMask(
-      shaderCallback: (Rect bounds) {
-        return LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [color1, color2],
-        ).createShader(bounds);
-      },
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          // Only show the "back glow" in dark mode for that neon effect
-          // In light mode, keep it clean.
-          boxShadow: isDark
-              ? [
-                  BoxShadow(
-                    color: color2.withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    spreadRadius: 5,
-                  ),
-                ]
-              : [],
-        ),
-        child: Icon(
-          icon,
-          size: 56, // Size from image
-          color: Colors.white, // Required for ShaderMask to work
-        ),
-      ),
-    );
-  }
 }
 
 // Helper for the bar chart bars

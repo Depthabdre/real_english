@@ -13,8 +13,7 @@ class ImmersionFeedPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Video background
-      // No AppBar, we want full immersion
+      backgroundColor: Colors.black,
       body: BlocProvider(
         create: (_) => sl<ImmersionBloc>()..add(const LoadImmersionFeed()),
         child: const _ImmersionView(),
@@ -32,11 +31,13 @@ class _ImmersionView extends StatefulWidget {
 
 class _ImmersionViewState extends State<_ImmersionView> {
   late final PreloadPageController _pageController;
+  int _focusedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PreloadPageController();
+    // KeepPage: true prevents state loss during tab switching
+    _pageController = PreloadPageController(keepPage: true);
   }
 
   @override
@@ -54,48 +55,55 @@ class _ImmersionViewState extends State<_ImmersionView> {
         }
 
         if (state is ImmersionError) {
-          return _buildErrorState(context, state.message);
+          return Center(
+            child: Text(
+              state.message,
+              style: const TextStyle(color: Colors.white),
+            ),
+          );
         }
 
         if (state is ImmersionLoaded) {
-          final bloc = context.read<ImmersionBloc>();
-
           return Stack(
             children: [
               PreloadPageView.builder(
                 key: const PageStorageKey('immersion_feed'),
                 controller: _pageController,
                 scrollDirection: Axis.vertical,
+                // The new strict physics
                 physics: const FastScrollPhysics(),
+                // Preload 1 allows the next Image to be ready, but not the Player
                 preloadPagesCount: 1,
                 itemCount: state.shorts.length,
                 onPageChanged: (index) {
+                  setState(() => _focusedIndex = index);
+
+                  // Load more when approaching end
                   if (index >= state.shorts.length - 2) {
-                    bloc.add(const LoadMoreImmersionFeed());
+                    context.read<ImmersionBloc>().add(
+                      const LoadMoreImmersionFeed(),
+                    );
                   }
                 },
                 itemBuilder: (context, index) {
-                  final short = state.shorts[index];
                   return ImmersionVideoItem(
-                    key: ValueKey('short-${short.id}'),
-                    short: short,
+                    key: ValueKey('short-${state.shorts[index].id}'),
+                    short: state.shorts[index],
+                    // Pass the focus state down
+                    isFocused: index == _focusedIndex,
                   );
                 },
               ),
 
-              if (bloc.isLoadingMore)
+              // Simple Loading Indicator for infinite scroll
+              if (context.read<ImmersionBloc>().isLoadingMore)
                 Positioned(
-                  bottom: 100, // Move up above Nav Bar
+                  bottom: 50,
                   left: 0,
                   right: 0,
                   child: Center(
-                    child: SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
+                    child: CircularProgressIndicator(
+                      color: Theme.of(context).colorScheme.secondary,
                     ),
                   ),
                 ),
@@ -104,35 +112,6 @@ class _ImmersionViewState extends State<_ImmersionView> {
         }
         return const SizedBox.shrink();
       },
-    );
-  }
-
-  Widget _buildErrorState(BuildContext context, String message) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.signal_wifi_off_rounded, color: Colors.white54, size: 48),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: const TextStyle(color: Colors.white70, fontFamily: 'Nunito'),
-          ),
-          const SizedBox(height: 20),
-          OutlinedButton(
-            onPressed: () =>
-                context.read<ImmersionBloc>().add(const LoadImmersionFeed()),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white54),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            child: const Text('Retry'),
-          ),
-        ],
-      ),
     );
   }
 }

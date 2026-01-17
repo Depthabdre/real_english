@@ -13,62 +13,78 @@ class FastScrollPhysics extends ScrollPhysics {
     ScrollMetrics position,
     double velocity,
   ) {
-    // 1. Setup dimensions
-    final double pageSize = position.viewportDimension;
-    final double currentPixels = position.pixels;
+    final double pixels = position.pixels;
+    final double viewport = position.viewportDimension;
 
-    // 2. Determine which page is "closest" right now (Round)
-    final int closestPage = (currentPixels / pageSize).round();
-    final double closestPagePixels = closestPage * pageSize;
+    // Safety check
+    if (viewport <= 0) return null;
 
-    // 3. Calculate how far we are from that closest page
-    // Positive = we pulled slightly down (towards next)
-    // Negative = we pulled slightly up (towards previous)
-    final double delta = currentPixels - closestPagePixels;
+    // 1. Calculate where we are exactly (e.g., 2.15 means 15% into page 2)
+    final double exactPage = pixels / viewport;
+    final int currentPage = exactPage.floor();
+    final double pageOffset = exactPage - currentPage;
+
+    // 2. Sensitivity Config
+    // 0.12 means you only need to drag 12% of the screen height to snap next
+    const double dragThreshold = 0.12;
+    const double velocityThreshold = 300.0;
 
     double targetPixels;
 
-    // 4. THE LOGIC: Ultra-Sensitive Snapping
-    // If velocity is high, let standard flinging handle it.
-    // If velocity is low (drag and drop), we check for "slight snips".
+    // 3. Logic Tree
+    if (velocity > velocityThreshold) {
+      // Fast Flick DOWN -> Go Next
+      targetPixels = (currentPage + 1) * viewport;
+    } else if (velocity < -velocityThreshold) {
+      // Fast Flick UP -> Go Previous (or snap to current if at top of page)
+      // Logic: If we are at 2.9 and flick up, we want 2.0.
+      // If we are at 2.1 and flick up, we want 1.0 (handled by round/floor logic usually, but let's be explicit)
+      targetPixels = currentPage * viewport;
 
-    if (velocity.abs() > 20) {
-      // Standard fling behavior if user flicks fast
-      targetPixels = velocity > 0
-          ? (closestPage + (delta > 0 ? 1 : 0)) * pageSize
-          : (closestPage - (delta < 0 ? 1 : 0)) * pageSize;
+      // If we were already partially down the page (e.g. 2.1) and flicked up,
+      // exactPage might be 2.1. We want to go to 2.0.
+      // If we were at 2.9 (dragging up from 3) and flicked up, we want 2.0.
     } else {
-      // User dragged slowly or just a tiny bit.
-      // We set a tiny threshold (e.g., 10 pixels).
-      // If you moved just 10 pixels away from the center, we commit to the move.
+      // SLOW DRAG / RELEASE
 
-      final double sensitivityThreshold = pageSize * 0.05;
-
-      if (delta > sensitivityThreshold) {
-        // User moved slightly down -> Go Next
-        targetPixels = (closestPage + 1) * pageSize;
-      } else if (delta < -sensitivityThreshold) {
-        // User moved slightly up -> Go Previous
-        targetPixels = (closestPage - 1) * pageSize;
+      if (pageOffset > dragThreshold) {
+        // Dragged > 12% down -> Snap to Next
+        targetPixels = (currentPage + 1) * viewport;
+      } else if (pageOffset < (1 - dragThreshold) && pageOffset > 0.0) {
+        // Dragged > 12% up (technically showing bottom of prev page) -> Snap to Previous
+        // Note: In a PageView, dragging UP usually decreases pixels.
+        // If we are at 2.0 and drag up, pixels go 1.9.
+        // This block handles the "reset" if you didn't drag enough.
+        targetPixels = currentPage * viewport;
       } else {
-        // User barely touched it -> Snap back
-        targetPixels = closestPagePixels;
+        // Didn't drag enough? Snap back to start of current page
+        targetPixels = currentPage * viewport;
       }
     }
 
-    // 5. Bounds Check (Don't scroll past start or end)
+    // 4. Strict clamping (Fixes the "pass many pages" bug)
     targetPixels = targetPixels.clamp(
       position.minScrollExtent,
       position.maxScrollExtent,
     );
 
-    // 6. Create the Spring (Snap effect)
+    // 5. If we are already at the target, let things settle
+    if ((targetPixels - pixels).abs() < 0.01) return null;
+
+    // 6. The Animation Spring
     return ScrollSpringSimulation(
-      const SpringDescription(mass: 0.5, stiffness: 800, damping: 30),
-      position.pixels,
+      const SpringDescription(
+        mass: 60, // Lighter mass = starts moving faster
+        stiffness: 150, // Higher stiffness = stronger magnetic snap
+        damping: 1.1, // Slightly overdamped to prevent bounce-back
+      ),
+      pixels,
       targetPixels,
       velocity,
       tolerance: toleranceFor(position),
     );
   }
+
+  @override
+  bool get allowImplicitScrolling => false;
 }

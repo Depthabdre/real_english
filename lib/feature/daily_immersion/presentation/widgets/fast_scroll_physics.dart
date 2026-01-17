@@ -32,7 +32,7 @@ class FastScrollPhysics extends ScrollPhysics {
     // If velocity is high, let standard flinging handle it.
     // If velocity is low (drag and drop), we check for "slight snips".
 
-    if (velocity.abs() > 800) {
+    if (velocity.abs() > 20) {
       // Standard fling behavior if user flicks fast
       targetPixels = velocity > 0
           ? (closestPage + (delta > 0 ? 1 : 0)) * pageSize

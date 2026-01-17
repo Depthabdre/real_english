@@ -29,6 +29,7 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
   final AudioPlayer _audioPlayer;
   StreamSubscription? _playerStateSubscription;
   final Map<String, Future<String>> _activeDownloads = {};
+  String? _targetSegmentId;
 
   StoryPlayerBloc({
     required this.getAudioForSegmentUseCase,
@@ -106,23 +107,23 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     if (state is StoryPlayerDisplay) {
       final currentState = state as StoryPlayerDisplay;
 
-      // Briefly reset the playing ID to trigger the UI to reset text
-      emit(
-        StoryPlayerDisplay(
-          storyTrail: currentState.storyTrail,
-          progress: currentState.progress,
-          audioCache: currentState.audioCache,
-          playingSegmentId: null,
-        ),
-      );
+      // SAFETY CHECK: Only replay if the player is actually loaded with the current segment
+      // We check if the player has a duration, meaning a source is loaded.
+      if (_audioPlayer.duration != null &&
+          _audioPlayer.duration! > Duration.zero) {
+        // Reset text UI
+        emit(currentState.copyWith(playingSegmentId: null));
 
-      await _audioPlayer.seek(Duration.zero);
-      _audioPlayer.play();
+        await _audioPlayer.seek(Duration.zero);
+        _audioPlayer.play();
 
-      // Signal UI to start typing again
-      emit(
-        currentState.copyWith(playingSegmentId: currentState.currentSegment.id),
-      );
+        // Restart text UI
+        emit(
+          currentState.copyWith(
+            playingSegmentId: currentState.currentSegment.id,
+          ),
+        );
+      }
     }
   }
 
@@ -268,10 +269,19 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     StoryProgress progress,
   ) async {
     if (state is! StoryPlayerDisplay) return;
+
     final currentState = state as StoryPlayerDisplay;
     final currentSegment = trail.segments[progress.currentSegmentIndex];
 
-    // Reset UI
+    // --- FIX 1: STOP EVERYTHING IMMEDIATELY ---
+    // As soon as we enter this function, stop the old audio.
+    // This prevents the "Ghost Audio" issue.
+    await _audioPlayer.stop();
+
+    // Update our target tracker
+    _targetSegmentId = currentSegment.id;
+
+    // Reset UI to "Loading/Waiting" state
     final loadingState = currentState.copyWith(
       playingSegmentId: null,
       currentAudioDuration: null,
@@ -282,7 +292,7 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
     if (currentSegment.type == SegmentType.narration) {
       String? audioUrl = loadingState.audioCache[currentSegment.id];
 
-      // 1. Fetch if missing (Using our new Smart Helper)
+      // 1. Fetch if missing
       if (audioUrl == null) {
         try {
           audioUrl = await _fetchOrGetActiveDownload(
@@ -290,7 +300,14 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
             currentSegment.audioEndpoint,
           );
 
-          // Add to cache event
+          // SAFETY CHECK: Did the user skip to the next segment while we were downloading?
+          if (_targetSegmentId != currentSegment.id) {
+            print(
+              "⚠️ User moved on. Discarding audio for ${currentSegment.id}",
+            );
+            return;
+          }
+
           if (audioUrl != null) {
             add(
               _AudioPreloaded(segmentId: currentSegment.id, audioUrl: audioUrl),
@@ -304,14 +321,18 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
       // 2. Play
       if (audioUrl != null) {
         try {
+          // SAFETY CHECK AGAIN before playing
+          if (_targetSegmentId != currentSegment.id) return;
+
+          // Set URL and Play
           final duration = await _audioPlayer.setUrl(audioUrl);
           _audioPlayer.play();
 
+          // Reveal UI Text
           emit(
             loadingState.copyWith(
               playingSegmentId: currentSegment.id,
               currentAudioDuration: duration,
-              // Ensure cache is updated in state
               audioCache: {
                 ...loadingState.audioCache,
                 currentSegment.id: audioUrl,
@@ -319,31 +340,33 @@ class StoryPlayerBloc extends Bloc<StoryPlayerEvent, StoryPlayerState> {
             ),
           );
         } catch (e) {
+          print("Playback error: $e");
+          // Even if audio fails, show text so user isn't stuck
           emit(loadingState.copyWith(playingSegmentId: currentSegment.id));
         }
       } else {
+        // No audio available, show text
         emit(loadingState.copyWith(playingSegmentId: currentSegment.id));
       }
     } else {
+      // Challenge: No audio, show text immediately
       emit(loadingState.copyWith(playingSegmentId: currentSegment.id));
     }
 
-    // --- PRELOAD NEXT SEGMENT ---
+    // --- PRELOAD NEXT ---
+    // (This logic remains fine, it runs in background)
     final preloadIndex = progress.currentSegmentIndex + 1;
     if (preloadIndex < trail.segments.length) {
       final nextSegment = trail.segments[preloadIndex];
-
       if (nextSegment.type == SegmentType.narration &&
           currentState.audioCache[nextSegment.id] == null) {
-        // Use the same helper! It will add it to _activeDownloads map.
-        // We don't await this, we let it run in background.
         _fetchOrGetActiveDownload(nextSegment.id, nextSegment.audioEndpoint)
             .then((url) {
               if (url != null) {
                 add(_AudioPreloaded(segmentId: nextSegment.id, audioUrl: url));
               }
             })
-            .catchError((_) {}); // Ignore errors in background preload
+            .catchError((_) {});
       }
     }
   }

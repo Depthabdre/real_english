@@ -75,14 +75,28 @@ class _ImmersionViewState extends State<_ImmersionView> {
                 // Preload 1 allows the next Image to be ready, but not the Player
                 preloadPagesCount: 1,
                 itemCount: state.shorts.length,
-                onPageChanged: (index) {
-                  setState(() => _focusedIndex = index);
+                onPageChanged: (newIndex) {
+                  final bloc = context.read<ImmersionBloc>();
 
-                  // Load more when approaching end
-                  if (index >= state.shorts.length - 2) {
-                    context.read<ImmersionBloc>().add(
-                      const LoadMoreImmersionFeed(),
-                    );
+                  // --- 1. Mark Previous Video as Watched ---
+                  // _focusedIndex is currently the "Old" index (the one we are leaving)
+                  if (_focusedIndex >= 0 &&
+                      _focusedIndex < state.shorts.length) {
+                    final previousShort = state.shorts[_focusedIndex];
+
+                    // Optimization: Only fire event if it's not already watched
+                    // to save API calls and state rebuilds.
+                    if (!previousShort.isWatched) {
+                      bloc.add(MarkShortAsWatched(previousShort.id));
+                    }
+                  }
+
+                  // --- 2. Update Local State ---
+                  setState(() => _focusedIndex = newIndex);
+
+                  // --- 3. Load More Data ---
+                  if (newIndex >= state.shorts.length - 2) {
+                    bloc.add(const LoadMoreImmersionFeed());
                   }
                 },
                 itemBuilder: (context, index) {
